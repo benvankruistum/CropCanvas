@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- Folder/UI Labels -->
+  <data name="SelectSourceFolder" xml:space="preserve">
+    <value>Selectionner le dossier source</value>
+  </data>
+  <data name="SelectOutputFolder" xml:space="preserve">
+    <value>Selectionner le dossier de sortie</value>
+  </data>
+  <data name="Ratio" xml:space="preserve">
+    <value>Ratio :</value>
+  </data>
+  <data name="Custom" xml:space="preserve">
+    <value>Personnalise</value>
+  </data>
+  <data name="Format" xml:space="preserve">
+    <value>Format :</value>
+  </data>
+  <data name="AI" xml:space="preserve">
+    <value>IA :</value>
+  </data>
+  <data name="ApiKey" xml:space="preserve">
+    <value>Cle API :</value>
+  </data>
+  <data name="Crop" xml:space="preserve">
+    <value>Recadrer</value>
+  </data>
+  <data name="AICrop" xml:space="preserve">
+    <value>IA + Recadrer</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>Aucun</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Langue :</value>
+  </data>
+  <!-- Status Messages -->
+  <data name="StatusSelectFolder" xml:space="preserve">
+    <value>Selectionnez un dossier source pour commencer</value>
+  </data>
+  <data name="StatusSelectImage" xml:space="preserve">
+    <value>Selectionnez une image</value>
+  </data>
+  <data name="StatusNoImage" xml:space="preserve">
+    <value>Aucune image selectionnee</value>
+  </data>
+  <data name="StatusLoadError" xml:space="preserve">
+    <value>Erreur de chargement : {0}</value>
+  </data>
+  <data name="StatusSaved" xml:space="preserve">
+    <value>Enregistre : {0} ({1}x{2})</value>
+  </data>
+  <data name="StatusSaveError" xml:space="preserve">
+    <value>Erreur de sauvegarde : {0}</value>
+  </data>
+  <data name="StatusFormat" xml:space="preserve">
+    <value>Original: {0}x{1} | Crop: {2}x{3} | Ratio: {4}:{5}</value>
+  </data>
+  <data name="StatusAIPadding" xml:space="preserve">
+    <value>AI padding: L:{0} U:{1} R:{2} D:{3}</value>
+  </data>
+  <data name="StatusImagesFound" xml:space="preserve">
+    <value>{0} images trouvees</value>
+  </data>
+  <data name="StatusLoading" xml:space="preserve">
+    <value>Chargement des images...</value>
+  </data>
+  <!-- AI/Outpainting Messages -->
+  <data name="StatusNoPadding" xml:space="preserve">
+    <value>Pas d'extension necessaire &#x2014; la selection est dans l'image.</value>
+  </data>
+  <data name="StatusCropping" xml:space="preserve">
+    <value>Recadrage de la zone visible...</value>
+  </data>
+  <data name="StatusEnterApiKey" xml:space="preserve">
+    <value>Entrez d'abord une cle API Stability AI.</value>
+  </data>
+  <data name="StatusConnecting" xml:space="preserve">
+    <value>Connexion a ComfyUI...</value>
+  </data>
+  <data name="StatusComfyNotFound" xml:space="preserve">
+    <value>ComfyUI non accessible sur 127.0.0.1:8188 &#x2014; demarrez ComfyUI d'abord.</value>
+  </data>
+  <data name="StatusNoModel" xml:space="preserve">
+    <value>Aucun modele trouve. Telechargez un modele d'inpainting (ex. sd-v1-5-inpainting).</value>
+  </data>
+  <data name="StatusUploading" xml:space="preserve">
+    <value>Telechargement vers ComfyUI...</value>
+  </data>
+  <data name="StatusOutpainting" xml:space="preserve">
+    <value>Outpainting (L:{0} T:{1} R:{2} B:{3})...</value>
+  </data>
+  <data name="StatusResultLoading" xml:space="preserve">
+    <value>Chargement du resultat...</value>
+  </data>
+  <data name="StatusOutpaintDone" xml:space="preserve">
+    <value>Outpainting termine ! Nouvelle taille : {0}x{1} &#x2014; vous pouvez maintenant recadrer.</value>
+  </data>
+  <data name="StatusOutpaintError" xml:space="preserve">
+    <value>Erreur d'outpainting : {0}</value>
+  </data>
+  <!-- ComfyUI Progress -->
+  <data name="ComfyPreparing" xml:space="preserve">
+    <value>Preparation du workflow...</value>
+  </data>
+  <data name="ComfyConnected" xml:space="preserve">
+    <value>Connecte a ComfyUI &#x2014; en attente de traitement...</value>
+  </data>
+  <data name="ComfyTimeout" xml:space="preserve">
+    <value>L'outpainting ComfyUI a pris trop longtemps (timeout apres 3 minutes).</value>
+  </data>
+  <data name="ComfyModelLoading" xml:space="preserve">
+    <value>Chargement du modele...</value>
+  </data>
+  <data name="ComfyGenerating" xml:space="preserve">
+    <value>Generation... etape {0}/{1} ({2}%)</value>
+  </data>
+  <data name="ComfyProcessingDone" xml:space="preserve">
+    <value>Traitement termine &#x2014; recuperation du resultat...</value>
+  </data>
+  <data name="ComfyError" xml:space="preserve">
+    <value>Erreur ComfyUI : {0}</value>
+  </data>
+  <data name="ComfyWsFallback" xml:space="preserve">
+    <value>WebSocket non disponible &#x2014; interrogation...</value>
+  </data>
+  <data name="ComfyResultDownloaded" xml:space="preserve">
+    <value>Resultat telecharge !</value>
+  </data>
+  <data name="ComfyResultFailed" xml:space="preserve">
+    <value>Impossible de recuperer le resultat de l'historique ComfyUI.</value>
+  </data>
+  <!-- Stability AI Progress -->
+  <data name="StabilityNoKey" xml:space="preserve">
+    <value>La cle API Stability AI n'est pas definie.</value>
+  </data>
+  <data name="StabilityNoPadding" xml:space="preserve">
+    <value>Au moins une direction doit etre &gt; 0.</value>
+  </data>
+  <data name="StabilityRatioWide" xml:space="preserve">
+    <value>Ratio {0:F1}:1 trop large &#x2014; ajout de {1}px de padding vertical pour la limite Stability AI.</value>
+  </data>
+  <data name="StabilityScaling" xml:space="preserve">
+    <value>Mise a l'echelle de l'image ({0:P0}) pour respecter les limites Stability AI...</value>
+  </data>
+  <data name="StabilitySending" xml:space="preserve">
+    <value>Envoi a Stability AI (L:{0} U:{1} R:{2} D:{3})...</value>
+  </data>
+  <data name="StabilityProcessing" xml:space="preserve">
+    <value>Outpainting en cours via Stability AI...</value>
+  </data>
+  <data name="StabilityDownloading" xml:space="preserve">
+    <value>Telechargement du resultat...</value>
+  </data>
+  <data name="StabilityDone" xml:space="preserve">
+    <value>Outpainting Stability AI termine !</value>
+  </data>
+  <data name="StabilityError" xml:space="preserve">
+    <value>Erreur Stability AI ({0}) : {1}</value>
+  </data>
+  <data name="StabilityRatioTall" xml:space="preserve">
+    <value>Ratio trop haut &#x2014; ajout de {0}px de padding horizontal.</value>
+  </data>
+  <data name="StabilityScaled" xml:space="preserve">
+    <value>Redimensionne : {0}x{1} + padding L:{2} U:{3} R:{4} D:{5}</value>
+  </data>
+  <data name="ComfyPollProgress" xml:space="preserve">
+    <value>Outpainting en cours... ({0}s)</value>
+  </data>
+  <data name="ComfyPollTimeout" xml:space="preserve">
+    <value>L'outpainting ComfyUI a pris trop longtemps (timeout apres 2 minutes).</value>
+  </data>
+  <data name="ComfyWsError" xml:space="preserve">
+    <value>Erreur WebSocket &#x2014; interrogation comme solution de secours...</value>
+  </data>
+  <!-- Dialog Descriptions -->
+  <data name="DialogSelectImages" xml:space="preserve">
+    <value>Selectionnez le dossier contenant les images</value>
+  </data>
+  <data name="DialogSelectOutput" xml:space="preserve">
+    <value>Selectionnez le dossier de sortie pour les images recadrees</value>
+  </data>
+  <!-- AI Labels -->
+  <data name="AILabel" xml:space="preserve">
+    <value>IA</value>
+  </data>
+  <data name="AIOutpainting" xml:space="preserve">
+    <value>IA Outpainting</value>
+  </data>
+</root>

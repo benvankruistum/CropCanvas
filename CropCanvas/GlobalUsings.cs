@@ -1,0 +1,10 @@
+global using Point = System.Windows.Point;
+global using Rectangle = System.Windows.Shapes.Rectangle;
+global using Brush = System.Windows.Media.Brush;
+global using Brushes = System.Windows.Media.Brushes;
+global using Color = System.Windows.Media.Color;
+global using Cursor = System.Windows.Input.Cursor;
+global using Cursors = System.Windows.Input.Cursors;
+global using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+global using MouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
+global using Application = System.Windows.Application;
