@@ -92,6 +92,51 @@ namespace CropCanvas.Resources {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Straighten.
+        /// </summary>
+        public static string RotationLabel {
+            get {
+                return ResourceManager.GetString("RotationLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Fine rotation (±3°). Applied before crop and AI; export stays axis-aligned..
+        /// </summary>
+        public static string RotationTooltip {
+            get {
+                return ResourceManager.GetString("RotationTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reset rotation.
+        /// </summary>
+        public static string ResetRotation {
+            get {
+                return ResourceManager.GetString("ResetRotation", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Horizon line.
+        /// </summary>
+        public static string StraightenGuideLineLabel {
+            get {
+                return ResourceManager.GetString("StraightenGuideLineLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Show a horizontal guide on the photo. Drag it vertically to align with the horizon while straightening..
+        /// </summary>
+        public static string StraightenGuideLineTooltip {
+            get {
+                return ResourceManager.GetString("StraightenGuideLineTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to API Key:.
         /// </summary>
         public static string ApiKey {
@@ -371,11 +416,29 @@ namespace CropCanvas.Resources {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to ComfyUI not reachable at 127.0.0.1:8188 - start ComfyUI first..
+        ///   Looks up a localized string similar to ComfyUI not reachable at {0} — start ComfyUI or check the server URL..
         /// </summary>
         public static string StatusComfyNotFound {
             get {
                 return ResourceManager.GetString("StatusComfyNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Server URL.
+        /// </summary>
+        public static string ComfyServerUrl {
+            get {
+                return ResourceManager.GetString("ComfyServerUrl", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to http://127.0.0.1:8188.
+        /// </summary>
+        public static string ComfyUrlPlaceholder {
+            get {
+                return ResourceManager.GetString("ComfyUrlPlaceholder", resourceCulture);
             }
         }
 
@@ -520,6 +583,60 @@ namespace CropCanvas.Resources {
         public static string StatusSaveError {
             get {
                 return ResourceManager.GetString("StatusSaveError", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Crop saved.
+        /// </summary>
+        public static string ToastCropSuccessTitle {
+            get {
+                return ResourceManager.GetString("ToastCropSuccessTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to AI result ready.
+        /// </summary>
+        public static string ToastOutpaintSuccessTitle {
+            get {
+                return ResourceManager.GetString("ToastOutpaintSuccessTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to AI input (% of original).
+        /// </summary>
+        public static string AiInputMaxSideLabel {
+            get {
+                return ResourceManager.GetString("AiInputMaxSideLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Resolution sent to the AI as a percentage of the full image or canvas (longest edge). 100% = full quality (APIs may still apply their own limits). Lower = faster uploads..
+        /// </summary>
+        public static string AiInputMaxSideTooltip {
+            get {
+                return ResourceManager.GetString("AiInputMaxSideTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to AI detail.
+        /// </summary>
+        public static string AiDetailLevelLabel {
+            get {
+                return ResourceManager.GetString("AiDetailLevelLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to ComfyUI: more sampler steps. HuggingFace: more diffusion steps. Stability AI: higher creativity. OpenAI does not use this slider. Higher is usually slower..
+        /// </summary>
+        public static string AiDetailLevelTooltip {
+            get {
+                return ResourceManager.GetString("AiDetailLevelTooltip", resourceCulture);
             }
         }
 

@@ -111,6 +111,24 @@
   <data name="StatusSaveError" xml:space="preserve">
     <value>Erreur de sauvegarde : {0}</value>
   </data>
+  <data name="ToastCropSuccessTitle" xml:space="preserve">
+    <value>Recadrage enregistré</value>
+  </data>
+  <data name="ToastOutpaintSuccessTitle" xml:space="preserve">
+    <value>Résultat IA prêt</value>
+  </data>
+  <data name="AiInputMaxSideLabel" xml:space="preserve">
+    <value>Entrée IA (% de l’original)</value>
+  </data>
+  <data name="AiInputMaxSideTooltip" xml:space="preserve">
+    <value>Résolution envoyée à l’IA en pourcentage de l’image ou du canevas complet (plus grand bord). 100 % = qualité maximale (les API peuvent avoir leurs propres limites). Plus bas = envoi plus rapide.</value>
+  </data>
+  <data name="AiDetailLevelLabel" xml:space="preserve">
+    <value>Détail IA</value>
+  </data>
+  <data name="AiDetailLevelTooltip" xml:space="preserve">
+    <value>ComfyUI : plus d'étapes d'échantillonnage. HuggingFace : plus d'étapes de diffusion. Stability AI : créativité plus élevée. OpenAI n'utilise pas ce curseur. Plus élevé = souvent plus lent.</value>
+  </data>
   <data name="StatusFormat" xml:space="preserve">
     <value>Original: {0}x{1} | Crop: {2}x{3} | Ratio: {4}:{5}</value>
   </data>
@@ -137,7 +155,13 @@
     <value>Connexion a ComfyUI...</value>
   </data>
   <data name="StatusComfyNotFound" xml:space="preserve">
-    <value>ComfyUI non accessible sur 127.0.0.1:8188 &#x2014; demarrez ComfyUI d'abord.</value>
+    <value>ComfyUI non accessible sur {0} &#x2014; d&#xE9;marrez ComfyUI ou v&#xE9;rifiez l'URL du serveur.</value>
+  </data>
+  <data name="ComfyServerUrl" xml:space="preserve">
+    <value>URL du serveur</value>
+  </data>
+  <data name="ComfyUrlPlaceholder" xml:space="preserve">
+    <value>http://127.0.0.1:8188</value>
   </data>
   <data name="StatusNoModel" xml:space="preserve">
     <value>Aucun modele trouve. Telechargez un modele d'inpainting (ex. sd-v1-5-inpainting).</value>
@@ -244,5 +268,20 @@
   </data>
   <data name="AIOutpainting" xml:space="preserve">
     <value>IA Outpainting</value>
+  </data>
+  <data name="RotationLabel" xml:space="preserve">
+    <value>Redresser</value>
+  </data>
+  <data name="RotationTooltip" xml:space="preserve">
+    <value>Rotation fine (±3°). Appliquee avant le recadrage et l'IA; l'export reste aligne aux axes.</value>
+  </data>
+  <data name="ResetRotation" xml:space="preserve">
+    <value>Reinitialiser la rotation</value>
+  </data>
+  <data name="StraightenGuideLineLabel" xml:space="preserve">
+    <value>Ligne d'horizon</value>
+  </data>
+  <data name="StraightenGuideLineTooltip" xml:space="preserve">
+    <value>Affiche un guide horizontal sur la photo. Faites-le glisser verticalement pour l'aligner sur l'horizon.</value>
   </data>
 </root>

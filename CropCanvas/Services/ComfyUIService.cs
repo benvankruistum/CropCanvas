@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using CropCanvas.Config;
+using CropCanvas.Models;
 using CropCanvas.Resources;
 using CropCanvas.Services.Interfaces;
 
@@ -11,43 +12,130 @@ namespace CropCanvas.Services;
 
 public class ComfyUIService : IOutpaintProvider
 {
-    private readonly HttpClient _http = new() { BaseAddress = new Uri(ComfyUIConfig.BaseUrl) };
+    private string _baseUrl = ComfyUIConfig.DefaultBaseUrl;
+    private HttpClient _http = new() { BaseAddress = new Uri(ComfyUIConfig.DefaultBaseUrl) };
     private readonly string _clientId = Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>Sets the ComfyUI server base URL (http/https, no path). Recreates the HTTP client.</summary>
+    public void SetBaseUrl(string? baseUrl)
+    {
+        var normalized = NormalizeBaseUrl(string.IsNullOrWhiteSpace(baseUrl)
+            ? ComfyUIConfig.DefaultBaseUrl
+            : baseUrl.Trim());
+        if (normalized == _baseUrl)
+            return;
+
+        _baseUrl = normalized;
+        _http.Dispose();
+        _http = new HttpClient { BaseAddress = new Uri(normalized) };
+    }
+
+    private static string NormalizeBaseUrl(string url)
+    {
+        url = url.Trim();
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            url = "http://" + url.TrimStart('/');
+        return url.TrimEnd('/');
+    }
+
+    private Uri BuildWebSocketUri()
+    {
+        var u = new Uri(_baseUrl);
+        var wsScheme = string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            ? "wss"
+            : "ws";
+        return new UriBuilder
+        {
+            Scheme = wsScheme,
+            Host = u.Host,
+            Port = u.Port,
+            Path = "/ws",
+            Query = "clientId=" + Uri.EscapeDataString(_clientId)
+        }.Uri;
+    }
 
     public async Task<byte[]> OutpaintAsync(byte[] imageData, string filename,
         int padLeft, int padTop, int padRight, int padBottom,
-        IProgress<string>? progress = null)
+        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null)
     {
+        var opt = options ?? new AiOutpaintOptions();
+        var pct = AiOutpaintOptions.ClampUploadScalePercent(opt.UploadScalePercent);
+        var jpegQ = Math.Clamp(opt.UploadJpegQuality, 70, 100);
+        var samplerSteps = opt.ComfySamplerSteps;
+
         progress?.Report(Strings.StatusConnecting);
         if (!await CheckConnectionAsync())
-            throw new Exception(Strings.StatusComfyNotFound);
+            throw new Exception(string.Format(Strings.StatusComfyNotFound, _baseUrl));
 
         var checkpoints = await GetAvailableCheckpointsAsync();
         if (checkpoints.Count == 0)
             throw new Exception(Strings.StatusNoModel);
 
-        // Prefer SDXL inpainting > any inpainting > first available
+        // IMPORTANT: Outpainting requires an inpainting-specific model, not a base model
+        // Prefer: SDXL inpainting (RealVisXL) > any inpainting > Lightning (fallback) > first
         var checkpoint = checkpoints.FirstOrDefault(c =>
                 c.Contains("inpaint", StringComparison.OrdinalIgnoreCase) &&
                 (c.Contains("XL", StringComparison.OrdinalIgnoreCase) ||
-                 c.Contains("realvis", StringComparison.OrdinalIgnoreCase) ||
-                 c.Contains("sdxl", StringComparison.OrdinalIgnoreCase)))
+                 c.Contains("realvis", StringComparison.OrdinalIgnoreCase)))
             ?? checkpoints.FirstOrDefault(c => c.Contains("inpaint", StringComparison.OrdinalIgnoreCase))
             ?? checkpoints[0];
+        progress?.Report($"Using model: {checkpoint}");
 
-        // Analyze image for context-aware prompt
-        progress?.Report("Analyzing image...");
-        var analysis = await Task.Run(() => ImageAnalyzer.Analyze(imageData));
-        var positivePrompt = ImageAnalyzer.GeneratePrompt(analysis);
-        var negativePrompt = ImageAnalyzer.GenerateNegativePrompt();
-        progress?.Report($"Detected: {analysis.TimeOfDay}, {analysis.Season}, {analysis.Mood}");
+        // Optional downscale: longest edge × (upload % / 100). At 100% no user downscale.
+        var bmp = new System.Windows.Media.Imaging.BitmapImage();
+        bmp.BeginInit();
+        bmp.StreamSource = new System.IO.MemoryStream(imageData);
+        bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        bmp.EndInit();
+        bmp.Freeze();
+        var srcW = bmp.PixelWidth;
+        var srcH = bmp.PixelHeight;
+        var longest = Math.Max(srcW, srcH);
+        var targetLongest = (int)Math.Round(longest * (pct / 100.0));
+        if (longest > targetLongest && pct < 100)
+        {
+            var scale = (double)targetLongest / longest;
+            var newW = (int)(srcW * scale);
+            var newH = (int)(srcH * scale);
+            padLeft = (int)(padLeft * scale);
+            padTop = (int)(padTop * scale);
+            padRight = (int)(padRight * scale);
+            padBottom = (int)(padBottom * scale);
+
+            progress?.Report($"Scaling {srcW}x{srcH} → {newW}x{newH} ({pct}% of original for AI upload)");
+
+            var scaled = new System.Windows.Media.Imaging.TransformedBitmap(bmp,
+                new System.Windows.Media.ScaleTransform(scale, scale));
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = jpegQ };
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(scaled));
+            using var ms = new System.IO.MemoryStream();
+            encoder.Save(ms);
+            imageData = ms.ToArray();
+        }
+
+        string? positivePrompt = null;
+        string? negativePrompt = null;
+
+        if (usePrompt)
+        {
+            progress?.Report("Analyzing image...");
+            var analysis = await Task.Run(() => ImageAnalyzer.Analyze(imageData));
+            positivePrompt = ImageAnalyzer.GeneratePrompt(analysis);
+            negativePrompt = ImageAnalyzer.GenerateNegativePrompt();
+            progress?.Report($"Detected: {analysis.TimeOfDay}, {analysis.Season}, {analysis.Mood}");
+        }
+        else
+        {
+            progress?.Report("Skipping image analysis — AI will decide.");
+        }
 
         progress?.Report(Strings.StatusUploading);
         var uploadedName = await UploadImageAsync(imageData, filename);
 
         progress?.Report(string.Format(Strings.StatusOutpainting, padLeft, padTop, padRight, padBottom));
         var promptId = await QueueOutpaintAsync(uploadedName, padLeft, padTop, padRight, padBottom,
-            checkpoint, positivePrompt, negativePrompt, progress);
+            checkpoint, positivePrompt, negativePrompt, samplerSteps, progress);
 
         return await WaitAndDownloadResultAsync(promptId, progress);
     }
@@ -78,6 +166,51 @@ public class ComfyUIService : IOutpaintProvider
         return result;
     }
 
+    public async Task<bool> HasControlNetUnionAsync()
+    {
+        try
+        {
+            var resp = await _http.GetStringAsync("/object_info/ControlNetLoader");
+            using var doc = JsonDocument.Parse(resp);
+            var models = doc.RootElement
+                .GetProperty("ControlNetLoader")
+                .GetProperty("input")
+                .GetProperty("required")
+                .GetProperty("control_net_name")[0];
+
+            foreach (var m in models.EnumerateArray())
+                if (m.GetString()?.Contains("union", StringComparison.OrdinalIgnoreCase) == true
+                    && m.GetString()?.Contains("promax", StringComparison.OrdinalIgnoreCase) == true)
+                    return true;
+            return false;
+        }
+        catch { return false; }
+    }
+
+    public async Task<string?> GetControlNetModelNameAsync()
+    {
+        try
+        {
+            var resp = await _http.GetStringAsync("/object_info/ControlNetLoader");
+            using var doc = JsonDocument.Parse(resp);
+            var models = doc.RootElement
+                .GetProperty("ControlNetLoader")
+                .GetProperty("input")
+                .GetProperty("required")
+                .GetProperty("control_net_name")[0];
+
+            foreach (var m in models.EnumerateArray())
+            {
+                var name = m.GetString();
+                if (name?.Contains("union", StringComparison.OrdinalIgnoreCase) == true
+                    && name.Contains("promax", StringComparison.OrdinalIgnoreCase) == true)
+                    return name;
+            }
+            return null;
+        }
+        catch { return null; }
+    }
+
     public async Task<string> UploadImageAsync(byte[] imageData, string filename)
     {
         using var content = new MultipartFormDataContent();
@@ -96,6 +229,7 @@ public class ComfyUIService : IOutpaintProvider
     public async Task<string> QueueOutpaintAsync(string uploadedImageName, int padLeft, int padTop,
         int padRight, int padBottom, string checkpoint,
         string? positivePrompt = null, string? negativePrompt = null,
+        int samplerSteps = 30,
         IProgress<string>? progress = null)
     {
         padLeft = RoundUp8(padLeft);
@@ -105,8 +239,22 @@ public class ComfyUIService : IOutpaintProvider
 
         progress?.Report(Strings.ComfyPreparing);
 
-        var workflow = ComfyUIWorkflowBuilder.Build(uploadedImageName, padLeft, padTop, padRight, padBottom,
-            checkpoint, positivePrompt, negativePrompt);
+        // TODO: ControlNet Union workflow needs debugging — using simple workflow for now
+        var controlNetName = await GetControlNetModelNameAsync();
+        Dictionary<string, object> workflow;
+
+        if (false && controlNetName != null) // Disabled until ControlNet workflow is fixed
+        {
+            progress?.Report($"Using ControlNet Union ({controlNetName})");
+            workflow = ComfyUIWorkflowBuilder.Build(uploadedImageName, padLeft, padTop, padRight, padBottom,
+                checkpoint, positivePrompt, negativePrompt);
+        }
+        else
+        {
+            progress?.Report("ControlNet Union not found — using basic workflow");
+            workflow = ComfyUIWorkflowBuilder.BuildSimple(uploadedImageName, padLeft, padTop, padRight, padBottom,
+                checkpoint, positivePrompt, negativePrompt, samplerSteps);
+        }
         var payload = JsonSerializer.Serialize(new { prompt = workflow, client_id = _clientId });
 
         var resp = await _http.PostAsync("/prompt",
@@ -126,7 +274,7 @@ public class ComfyUIService : IOutpaintProvider
             using var ws = new ClientWebSocket();
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(ComfyUIConfig.TimeoutMinutes));
 
-            await ws.ConnectAsync(new Uri($"ws://{ComfyUIConfig.BaseUrl.Replace("http://", "")}/ws?clientId={_clientId}"), cts.Token);
+            await ws.ConnectAsync(BuildWebSocketUri(), cts.Token);
             progress?.Report(Strings.ComfyConnected);
 
             var buffer = new byte[ComfyUIConfig.WebSocketBufferSize];

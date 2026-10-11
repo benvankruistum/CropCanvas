@@ -1,0 +1,26 @@
+MSIX-pakket (Microsoft Store / sideload)
+========================================
+
+Build (aanbevolen)
+------------------
+1. Installeer Visual Studio 2022 met workloads:
+   - .NET desktop development
+   - MSIX Packaging Tools (of "Universal Windows Platform" / Windows SDK voor manifest)
+
+2. Open CropCanvas.sln, kies configuratie Release | x64 (of de standaard Any CPU-build bouwt ook het package-project mee).
+
+3. Rechtsklik project "CropCanvas.Package" -> Build of Publish -> Create App Packages (voor Store-upload).
+
+Let op: `dotnet build` op alleen de SDK installeert meestal geen Desktop Bridge-targets; het MSIX-packagingproject verwacht de MSBuild-imports van Visual Studio onder Microsoft\DesktopBridge.
+
+Manifest / identiteit
+---------------------
+In Package.appxmanifest: pas Identity Name en Publisher aan naar je gereserveerde app-naam en je Publisher Display Name uit Partner Center (Publisher is een certificaat-onderwerp, CN=...).
+
+Assets
+------
+PNG's staan onder Assets\ (kopie van CropCanvas\Assets\Store). Na nieuwe iconen: opnieuw kopiëren of `tools\IconPipeline` draaien en dezelfde bestandsnamen terugzetten.
+
+Capabilities
+------------
+internetClient + runFullTrust: nodig voor netwerk-API's en een volledige desktop-WPF-app. Review bij Store-indiening.
