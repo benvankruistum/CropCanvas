@@ -25,9 +25,17 @@ public class ComfyUIService : IOutpaintProvider
         if (normalized == _baseUrl)
             return;
 
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var baseUri) ||
+            (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
+        {
+            // Incomplete while typing — keep previous client; store text for later validation.
+            _baseUrl = normalized;
+            return;
+        }
+
         _baseUrl = normalized;
-        _http.Dispose();
-        _http = new HttpClient { BaseAddress = new Uri(normalized) };
+        // Do not Dispose the previous client here — in-flight requests may still use it.
+        _http = new HttpClient { BaseAddress = baseUri, Timeout = TimeSpan.FromMinutes(ComfyUIConfig.TimeoutMinutes) };
     }
 
     private static string NormalizeBaseUrl(string url)
@@ -37,6 +45,14 @@ public class ComfyUIService : IOutpaintProvider
             !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             url = "http://" + url.TrimStart('/');
         return url.TrimEnd('/');
+    }
+
+    private void EnsureValidBaseUrl()
+    {
+        if (!Uri.TryCreate(_baseUrl, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
+            string.IsNullOrEmpty(uri.Host))
+            throw new ArgumentException($"Invalid ComfyUI base URL: {_baseUrl}");
     }
 
     private Uri BuildWebSocketUri()
@@ -57,18 +73,20 @@ public class ComfyUIService : IOutpaintProvider
 
     public async Task<byte[]> OutpaintAsync(byte[] imageData, string filename,
         int padLeft, int padTop, int padRight, int padBottom,
-        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null)
+        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         var opt = options ?? new AiOutpaintOptions();
         var pct = AiOutpaintOptions.ClampUploadScalePercent(opt.UploadScalePercent);
         var jpegQ = Math.Clamp(opt.UploadJpegQuality, 70, 100);
         var samplerSteps = opt.ComfySamplerSteps;
 
+        EnsureValidBaseUrl();
         progress?.Report(Strings.StatusConnecting);
-        if (!await CheckConnectionAsync())
+        if (!await CheckConnectionAsync(cancellationToken))
             throw new Exception(string.Format(Strings.StatusComfyNotFound, _baseUrl));
 
-        var checkpoints = await GetAvailableCheckpointsAsync();
+        var checkpoints = await GetAvailableCheckpointsAsync(cancellationToken);
         if (checkpoints.Count == 0)
             throw new Exception(Strings.StatusNoModel);
 
@@ -120,7 +138,7 @@ public class ComfyUIService : IOutpaintProvider
         if (usePrompt)
         {
             progress?.Report("Analyzing image...");
-            var analysis = await Task.Run(() => ImageAnalyzer.Analyze(imageData));
+            var analysis = await Task.Run(() => ImageAnalyzer.Analyze(imageData), cancellationToken);
             positivePrompt = ImageAnalyzer.GeneratePrompt(analysis);
             negativePrompt = ImageAnalyzer.GenerateNegativePrompt();
             progress?.Report($"Detected: {analysis.TimeOfDay}, {analysis.Season}, {analysis.Mood}");
@@ -131,28 +149,28 @@ public class ComfyUIService : IOutpaintProvider
         }
 
         progress?.Report(Strings.StatusUploading);
-        var uploadedName = await UploadImageAsync(imageData, filename);
+        var uploadedName = await UploadImageAsync(imageData, filename, cancellationToken);
 
         progress?.Report(string.Format(Strings.StatusOutpainting, padLeft, padTop, padRight, padBottom));
         var promptId = await QueueOutpaintAsync(uploadedName, padLeft, padTop, padRight, padBottom,
-            checkpoint, positivePrompt, negativePrompt, samplerSteps, progress);
+            checkpoint, positivePrompt, negativePrompt, samplerSteps, progress, cancellationToken);
 
-        return await WaitAndDownloadResultAsync(promptId, progress);
+        return await WaitAndDownloadResultAsync(promptId, progress, cancellationToken);
     }
 
-    public async Task<bool> CheckConnectionAsync()
+    public async Task<bool> CheckConnectionAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var resp = await _http.GetAsync("/system_stats");
+            var resp = await _http.GetAsync("/system_stats", cancellationToken);
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
     }
 
-    public async Task<List<string>> GetAvailableCheckpointsAsync()
+    public async Task<List<string>> GetAvailableCheckpointsAsync(CancellationToken cancellationToken = default)
     {
-        var resp = await _http.GetStringAsync("/object_info/CheckpointLoaderSimple");
+        var resp = await _http.GetStringAsync("/object_info/CheckpointLoaderSimple", cancellationToken);
         using var doc = JsonDocument.Parse(resp);
         var ckpts = doc.RootElement
             .GetProperty("CheckpointLoaderSimple")
@@ -211,17 +229,17 @@ public class ComfyUIService : IOutpaintProvider
         catch { return null; }
     }
 
-    public async Task<string> UploadImageAsync(byte[] imageData, string filename)
+    public async Task<string> UploadImageAsync(byte[] imageData, string filename, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         content.Add(new ByteArrayContent(imageData), "image", filename);
         content.Add(new StringContent("input"), "type");
         content.Add(new StringContent("true"), "overwrite");
 
-        var resp = await _http.PostAsync("/upload/image", content);
+        var resp = await _http.PostAsync("/upload/image", content, cancellationToken);
         resp.EnsureSuccessStatusCode();
 
-        var json = await resp.Content.ReadAsStringAsync();
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.GetProperty("name").GetString()!;
     }
@@ -230,7 +248,8 @@ public class ComfyUIService : IOutpaintProvider
         int padRight, int padBottom, string checkpoint,
         string? positivePrompt = null, string? negativePrompt = null,
         int samplerSteps = 30,
-        IProgress<string>? progress = null)
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         padLeft = RoundUp8(padLeft);
         padTop = RoundUp8(padTop);
@@ -258,23 +277,26 @@ public class ComfyUIService : IOutpaintProvider
         var payload = JsonSerializer.Serialize(new { prompt = workflow, client_id = _clientId });
 
         var resp = await _http.PostAsync("/prompt",
-            new StringContent(payload, Encoding.UTF8, "application/json"));
+            new StringContent(payload, Encoding.UTF8, "application/json"), cancellationToken);
         resp.EnsureSuccessStatusCode();
 
-        var json = await resp.Content.ReadAsStringAsync();
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.GetProperty("prompt_id").GetString()!;
     }
 
-    public async Task<byte[]> WaitAndDownloadResultAsync(string promptId, IProgress<string>? progress = null)
+    public async Task<byte[]> WaitAndDownloadResultAsync(string promptId, IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         // Try WebSocket first for real-time progress, fallback to polling
         try
         {
             using var ws = new ClientWebSocket();
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(ComfyUIConfig.TimeoutMinutes));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(ComfyUIConfig.TimeoutMinutes));
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            var token = linked.Token;
 
-            await ws.ConnectAsync(BuildWebSocketUri(), cts.Token);
+            await ws.ConnectAsync(BuildWebSocketUri(), token);
             progress?.Report(Strings.ComfyConnected);
 
             var buffer = new byte[ComfyUIConfig.WebSocketBufferSize];
@@ -283,7 +305,11 @@ public class ComfyUIService : IOutpaintProvider
                 WebSocketReceiveResult result;
                 try
                 {
-                    result = await ws.ReceiveAsync(buffer, cts.Token);
+                    result = await ws.ReceiveAsync(buffer, token);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (OperationCanceledException)
                 {
@@ -298,7 +324,7 @@ public class ComfyUIService : IOutpaintProvider
                 var msgBuilder = new StringBuilder(Encoding.UTF8.GetString(buffer, 0, result.Count));
                 while (!result.EndOfMessage)
                 {
-                    result = await ws.ReceiveAsync(buffer, cts.Token);
+                    result = await ws.ReceiveAsync(buffer, token);
                     msgBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
                 }
 
@@ -332,8 +358,8 @@ public class ComfyUIService : IOutpaintProvider
                         if (nodeId == null)
                         {
                             progress?.Report(Strings.ComfyProcessingDone);
-                            await Task.Delay(500);
-                            return await DownloadResultFromHistory(promptId, progress);
+                            await Task.Delay(500, cancellationToken);
+                            return await DownloadResultFromHistory(promptId, progress, cancellationToken);
                         }
                         break;
 
@@ -342,6 +368,10 @@ public class ComfyUIService : IOutpaintProvider
                         throw new Exception(string.Format(Strings.ComfyError, errorMsg));
                 }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (WebSocketException)
         {
@@ -355,41 +385,43 @@ public class ComfyUIService : IOutpaintProvider
         }
 
         // Fallback to polling
-        return await PollAndDownloadResultAsync(promptId, progress);
+        return await PollAndDownloadResultAsync(promptId, progress, cancellationToken);
     }
 
-    private async Task<byte[]> PollAndDownloadResultAsync(string promptId, IProgress<string>? progress = null)
+    private async Task<byte[]> PollAndDownloadResultAsync(string promptId, IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         for (int i = 0; i < ComfyUIConfig.MaxPollAttempts; i++)
         {
-            await Task.Delay(ComfyUIConfig.PollIntervalMs);
+            await Task.Delay(ComfyUIConfig.PollIntervalMs, cancellationToken);
             progress?.Report(string.Format(Strings.ComfyPollProgress, i + 1));
 
-            var bytes = await TryDownloadFromHistory(promptId);
+            var bytes = await TryDownloadFromHistory(promptId, cancellationToken);
             if (bytes != null)
                 return bytes;
         }
         throw new TimeoutException(Strings.ComfyPollTimeout);
     }
 
-    private async Task<byte[]> DownloadResultFromHistory(string promptId, IProgress<string>? progress = null)
+    private async Task<byte[]> DownloadResultFromHistory(string promptId, IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         for (int i = 0; i < 10; i++)
         {
-            var bytes = await TryDownloadFromHistory(promptId);
+            var bytes = await TryDownloadFromHistory(promptId, cancellationToken);
             if (bytes != null)
             {
                 progress?.Report(Strings.ComfyResultDownloaded);
                 return bytes;
             }
-            await Task.Delay(500);
+            await Task.Delay(500, cancellationToken);
         }
         throw new Exception(Strings.ComfyResultFailed);
     }
 
-    private async Task<byte[]?> TryDownloadFromHistory(string promptId)
+    private async Task<byte[]?> TryDownloadFromHistory(string promptId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.GetStringAsync($"/history/{promptId}");
+        var resp = await _http.GetStringAsync($"/history/{promptId}", cancellationToken);
         using var doc = JsonDocument.Parse(resp);
 
         if (!doc.RootElement.TryGetProperty(promptId, out var entry)) return null;
@@ -405,7 +437,8 @@ public class ComfyUIService : IOutpaintProvider
                 var type = img.TryGetProperty("type", out var tp) ? tp.GetString() ?? "output" : "output";
 
                 return await _http.GetByteArrayAsync(
-                    $"/view?filename={Uri.EscapeDataString(filename)}&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}");
+                    $"/view?filename={Uri.EscapeDataString(filename)}&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}",
+                    cancellationToken);
             }
         }
         return null;

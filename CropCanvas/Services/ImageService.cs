@@ -355,7 +355,7 @@ public class ImageService
     /// </summary>
     private static BitmapSource MagickToBitmapSource(MagickImage image)
     {
-        var ms = new MemoryStream();
+        using var ms = new MemoryStream();
         image.Write(ms, MagickFormat.Png);
         ms.Position = 0;
         var bitmap = new BitmapImage();
