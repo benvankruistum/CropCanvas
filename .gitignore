@@ -6,3 +6,4 @@ obj/
 *.DotSettings
 .claude/
 publish/
+_build_*/

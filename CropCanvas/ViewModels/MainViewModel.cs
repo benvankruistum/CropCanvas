@@ -24,6 +24,8 @@ public partial class MainViewModel : ObservableObject
     private readonly OpenAIService _openAIService = new();
     private readonly HuggingFaceOutpaintService _huggingFaceService = new();
     private AppSettings _settings;
+    private bool _settingsReady;
+    private CancellationTokenSource? _loadImagesCts;
 
     public ObservableCollection<ImageItem> Images { get; } = [];
 
@@ -196,7 +198,8 @@ public partial class MainViewModel : ObservableObject
         ScreenResH = sh;
         var (rw, rh) = _screenService.GetSimplifiedRatio(sw, sh);
 
-        // Apply settings
+        // Apply settings without persisting mid-ctor (On*Changed would otherwise wipe keys).
+        _settingsReady = false;
         SourceFolderPath = _settings.SourceFolderPath;
         OutputFolderPath = _settings.OutputFolderPath;
         UseCustomAspectRatio = _settings.UseCustomAspectRatio;
@@ -207,11 +210,9 @@ public partial class MainViewModel : ObservableObject
         SelectedProvider = _settings.OutpaintProvider;
         StabilityApiKey = _settings.StabilityApiKey;
         UseAIPrompt = _settings.UseAIPrompt;
-        if (!string.IsNullOrEmpty(StabilityApiKey))
-            _stabilityService.SetApiKey(StabilityApiKey);
+        _stabilityService.SetApiKey(StabilityApiKey);
         OpenAIApiKey = _settings.OpenAIApiKey;
-        if (!string.IsNullOrEmpty(OpenAIApiKey))
-            _openAIService.SetApiKey(OpenAIApiKey);
+        _openAIService.SetApiKey(OpenAIApiKey);
         ComfyUIBaseUrl = string.IsNullOrWhiteSpace(_settings.ComfyUIBaseUrl)
             ? ComfyUIConfig.DefaultBaseUrl
             : _settings.ComfyUIBaseUrl;
@@ -227,16 +228,18 @@ public partial class MainViewModel : ObservableObject
 
         UpdateCropAspectRatio();
 
-        // Auto-load source folder if previously set
-        if (!string.IsNullOrEmpty(SourceFolderPath) && Directory.Exists(SourceFolderPath))
-            _ = LoadImagesAsync(SourceFolderPath);
-
         _cropSuccessToastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
         _cropSuccessToastTimer.Tick += (_, _) =>
         {
             _cropSuccessToastTimer.Stop();
             IsCropSuccessToastVisible = false;
         };
+
+        _settingsReady = true;
+
+        // Auto-load source folder if previously set
+        if (!string.IsNullOrEmpty(SourceFolderPath) && Directory.Exists(SourceFolderPath))
+            _ = LoadImagesAsync(SourceFolderPath);
     }
 
     private void ShowCropSuccessToast(string title, string detail)
@@ -258,6 +261,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsComfyProvider));
         OnPropertyChanged(nameof(NeedsApiKey));
         OnPropertyChanged(nameof(HasAIProvider));
+        if (value == OutpaintProvider.Geen)
+            ClampCropToImageBounds();
         SaveSettings();
     }
 
@@ -269,15 +274,13 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnStabilityApiKeyChanged(string? value)
     {
-        if (!string.IsNullOrEmpty(value))
-            _stabilityService.SetApiKey(value);
+        _stabilityService.SetApiKey(value);
         SaveSettings();
     }
 
     partial void OnOpenAIApiKeyChanged(string? value)
     {
-        if (!string.IsNullOrEmpty(value))
-            _openAIService.SetApiKey(value);
+        _openAIService.SetApiKey(value);
         SaveSettings();
     }
 
@@ -286,6 +289,10 @@ public partial class MainViewModel : ObservableObject
         _comfyService.SetBaseUrl(value);
         SaveSettings();
     }
+
+    partial void OnSelectedOutputFormatChanged(OutputFormat value) => SaveSettings();
+
+    partial void OnUseAIPromptChanged(bool value) => SaveSettings();
 
     partial void OnAiUploadScalePercentChanged(int value) => SaveSettings();
 
@@ -447,6 +454,7 @@ public partial class MainViewModel : ObservableObject
 
         var pad = PaddingCalculator.Calculate(NormalizedCropX, NormalizedCropY, NormalizedCropWidth, NormalizedCropHeight, origW, origH);
         bool hasOob = PaddingCalculator.HasOutOfBounds(pad);
+        HasOutOfBounds = hasOob;
 
         var status = string.Format(Strings.StatusFormat, origW, origH, cropW, cropH, AspectRatioWidth, AspectRatioHeight);
 
@@ -593,6 +601,23 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Outpainting cancelled.";
     }
 
+    /// <summary>When AI is disabled, keep the crop rectangle inside the image so Crop matches the overlay.</summary>
+    private void ClampCropToImageBounds()
+    {
+        var x = Math.Clamp(NormalizedCropX, 0, 1);
+        var y = Math.Clamp(NormalizedCropY, 0, 1);
+        var w = Math.Clamp(NormalizedCropWidth, 0.01, 1);
+        var h = Math.Clamp(NormalizedCropHeight, 0.01, 1);
+        if (x + w > 1) x = Math.Max(0, 1 - w);
+        if (y + h > 1) y = Math.Max(0, 1 - h);
+        NormalizedCropX = x;
+        NormalizedCropY = y;
+        NormalizedCropWidth = w;
+        NormalizedCropHeight = h;
+        HasOutOfBounds = false;
+        UpdateStatusText();
+    }
+
     [RelayCommand]
     private void ResetRotation() => RotationDegrees = 0;
 
@@ -632,6 +657,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         _outpaintCts?.Cancel();
+        _outpaintCts?.Dispose();
         _outpaintCts = new CancellationTokenSource();
         var ct = _outpaintCts.Token;
 
@@ -674,23 +700,23 @@ public partial class MainViewModel : ObservableObject
             if (provider == OutpaintProvider.StabilityAI)
             {
                 resultBytes = await _stabilityService.OutpaintAsync(imageBytes, fileName,
-                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts, ct);
             }
             else if (provider == OutpaintProvider.OpenAI)
             {
                 resultBytes = await _openAIService.OutpaintAsync(imageBytes, fileName,
-                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts, ct);
             }
             else if (provider == OutpaintProvider.HuggingFace)
             {
                 resultBytes = await _huggingFaceService.OutpaintAsync(imageBytes, fileName,
-                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts, ct);
             }
             else
             {
                 // ComfyUI: send full image — ImagePadForOutpaint handles the padding
                 resultBytes = await _comfyService.OutpaintAsync(imageBytes, fileName,
-                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts, ct);
             }
 
             ct.ThrowIfCancellationRequested();
@@ -707,22 +733,27 @@ public partial class MainViewModel : ObservableObject
             _log.Success($"Outpainting complete: {resultImage.PixelWidth}x{resultImage.PixelHeight}");
             _log.Info($"Saved to: {tempPath}");
 
-            // Show result — load as new display image
-            var newItem = new ImageItem(tempPath)
+            // Only switch the gallery selection if the user is still on the source image.
+            var stillOnSource = SelectedImage?.FilePath == sourceFilePath;
+            if (stillOnSource)
             {
-                OriginalWidth = resultImage.PixelWidth,
-                OriginalHeight = resultImage.PixelHeight
-            };
-
-            SelectedImage = newItem;
+                SelectedImage = new ImageItem(tempPath)
+                {
+                    OriginalWidth = resultImage.PixelWidth,
+                    OriginalHeight = resultImage.PixelHeight
+                };
+            }
 
             var doneMsg = string.Format(Strings.StatusOutpaintDone, resultImage.PixelWidth, resultImage.PixelHeight);
-            StatusText = doneMsg;
+            StatusText = stillOnSource
+                ? doneMsg
+                : $"{doneMsg} (saved to temp — gallery selection unchanged)";
             ShowCropSuccessToast(Strings.ToastOutpaintSuccessTitle, doneMsg);
         }
         catch (OperationCanceledException)
         {
             _log.Warn("Outpainting was cancelled.");
+            StatusText = "Outpainting cancelled.";
         }
         catch (Exception ex)
         {
@@ -744,6 +775,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task LoadImagesAsync(string folderPath)
     {
+        _loadImagesCts?.Cancel();
+        _loadImagesCts?.Dispose();
+        _loadImagesCts = new CancellationTokenSource();
+        var ct = _loadImagesCts.Token;
+
         IsLoading = true;
         Images.Clear();
         SelectedImage = null;
@@ -752,38 +788,60 @@ public partial class MainViewModel : ObservableObject
 
         var dispatcher = Dispatcher.CurrentDispatcher;
 
-        await Task.Run(() =>
+        try
         {
-            var files = Directory.EnumerateFiles(folderPath)
-                .Where(f => _imageService.IsSupportedImage(f))
-                .OrderBy(f => f)
-                .ToList();
-
-            foreach (var file in files)
+            await Task.Run(() =>
             {
-                try
-                {
-                    var (w, h) = _imageService.GetImageDimensions(file);
-                    var item = new ImageItem(file) { OriginalWidth = w, OriginalHeight = h };
-                    var thumb = _imageService.LoadThumbnail(file);
+                var files = Directory.EnumerateFiles(folderPath)
+                    .Where(f => _imageService.IsSupportedImage(f))
+                    .OrderBy(f => f)
+                    .ToList();
 
-                    dispatcher.Invoke(() =>
+                foreach (var file in files)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
                     {
-                        item.Thumbnail = thumb;
-                        item.IsCropped = CheckIfCropped(file);
-                        Images.Add(item);
-                    });
-                }
-                catch
-                {
-                    // Skip unreadable files
-                }
-            }
-        });
+                        var (w, h) = _imageService.GetImageDimensions(file);
+                        var item = new ImageItem(file) { OriginalWidth = w, OriginalHeight = h };
+                        var thumb = _imageService.LoadThumbnail(file);
 
-        IsLoading = false;
-        UpdateImageCounts();
-        StatusText = string.Format(Strings.StatusImagesFound, Images.Count);
+                        dispatcher.Invoke(() =>
+                        {
+                            if (ct.IsCancellationRequested) return;
+                            item.Thumbnail = thumb;
+                            item.IsCropped = CheckIfCropped(file);
+                            Images.Add(item);
+                        }, DispatcherPriority.Background);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch
+                    {
+                        // Skip unreadable files
+                    }
+                }
+            }, ct);
+
+            if (!ct.IsCancellationRequested)
+            {
+                UpdateImageCounts();
+                StatusText = string.Format(Strings.StatusImagesFound, Images.Count);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Newer folder load superseded this one.
+        }
+        catch (Exception ex)
+        {
+            StatusText = string.Format(Strings.StatusLoadError, ex.Message);
+            _log.Error($"Failed to load images: {ex.Message}");
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+                IsLoading = false;
+        }
     }
 
     private bool CheckIfCropped(string sourceFilePath)
@@ -805,6 +863,8 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveSettings()
     {
+        if (!_settingsReady) return;
+
         _settings.SourceFolderPath = SourceFolderPath;
         _settings.OutputFolderPath = OutputFolderPath;
         _settings.AspectRatioWidth = AspectRatioWidth;

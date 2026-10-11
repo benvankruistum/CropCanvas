@@ -15,12 +15,14 @@ public class OpenAIService : IOutpaintProvider
 {
     private string? _apiKey;
 
-    public void SetApiKey(string apiKey) => _apiKey = apiKey;
+    public void SetApiKey(string? apiKey) =>
+        _apiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
     public bool HasApiKey => !string.IsNullOrEmpty(_apiKey);
 
     public async Task<byte[]> OutpaintAsync(byte[] imageData, string filename,
         int padLeft, int padTop, int padRight, int padBottom,
-        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null)
+        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         if (!HasApiKey)
             throw new InvalidOperationException("OpenAI API key is not set.");
@@ -98,7 +100,8 @@ public class OpenAIService : IOutpaintProvider
             imageStream, "canvas.png",
             prompt,
             maskStream, "mask.png",
-            editOptions);
+            editOptions,
+            cancellationToken);
 
         var generatedImage = result.Value;
         var resultBytes = generatedImage.ImageBytes.ToArray();

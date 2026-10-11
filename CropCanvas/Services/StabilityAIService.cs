@@ -14,18 +14,26 @@ namespace CropCanvas.Services;
 
 public class StabilityAIService : IOutpaintProvider
 {
-    private readonly HttpClient _http = new() { BaseAddress = new Uri(StabilityAIConfig.BaseUrl) };
-
-    public void SetApiKey(string apiKey)
+    private readonly HttpClient _http = new()
     {
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        BaseAddress = new Uri(StabilityAIConfig.BaseUrl),
+        Timeout = TimeSpan.FromMinutes(5)
+    };
+
+    public void SetApiKey(string? apiKey)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+            _http.DefaultRequestHeaders.Authorization = null;
+        else
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
     }
 
     public bool HasApiKey => _http.DefaultRequestHeaders.Authorization?.Parameter is { Length: > 0 };
 
     public async Task<byte[]> OutpaintAsync(byte[] imageData, string filename,
         int padLeft, int padTop, int padRight, int padBottom,
-        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null)
+        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         if (!HasApiKey)
             throw new InvalidOperationException(Strings.StabilityNoKey);
@@ -200,7 +208,7 @@ public class StabilityAIService : IOutpaintProvider
         request.Content = content;
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("image/*"));
 
-        var resp = await _http.SendAsync(request);
+        var resp = await _http.SendAsync(request, cancellationToken);
 
         if (!resp.IsSuccessStatusCode)
         {

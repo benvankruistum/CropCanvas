@@ -20,7 +20,8 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
 
     public async Task<byte[]> OutpaintAsync(byte[] imageData, string filename,
         int padLeft, int padTop, int padRight, int padBottom,
-        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null)
+        bool usePrompt = true, IProgress<string>? progress = null, AiOutpaintOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         var opt = options ?? new AiOutpaintOptions();
         var pct = AiOutpaintOptions.ClampUploadScalePercent(opt.UploadScalePercent);
@@ -79,7 +80,7 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
 
         // Step 1: Upload
         progress?.Report($"Uploading to HuggingFace ({imageData.Length / 1024}KB)...");
-        var uploadedPath = await UploadImageAsync(imageData, filename);
+        var uploadedPath = await UploadImageAsync(imageData, filename, cancellationToken);
 
         // Step 2: Call /infer
         progress?.Report($"Outpainting via HuggingFace ({targetW}x{targetH}, {alignment}, resize {resizePct:F0}%)...");
@@ -106,15 +107,15 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
 
         var json = JsonSerializer.Serialize(payload);
         var callResp = await _http.PostAsync($"{SpaceUrl}/gradio_api/call/infer",
-            new StringContent(json, Encoding.UTF8, "application/json"));
+            new StringContent(json, Encoding.UTF8, "application/json"), cancellationToken);
 
         if (!callResp.IsSuccessStatusCode)
         {
-            var errBody = await callResp.Content.ReadAsStringAsync();
+            var errBody = await callResp.Content.ReadAsStringAsync(cancellationToken);
             throw new Exception($"HuggingFace API error ({callResp.StatusCode}): {errBody}");
         }
 
-        var callResult = await callResp.Content.ReadAsStringAsync();
+        var callResult = await callResp.Content.ReadAsStringAsync(cancellationToken);
         using var callDoc = JsonDocument.Parse(callResult);
 
         if (!callDoc.RootElement.TryGetProperty("event_id", out var eventIdProp) || eventIdProp.GetString() is not string eventId)
@@ -122,27 +123,27 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
 
         // Step 3: Poll for result via SSE stream
         progress?.Report("Processing on HuggingFace GPU (this may take 30-60s)...");
-        return await PollForResultAsync(eventId, progress);
+        return await PollForResultAsync(eventId, progress, cancellationToken);
     }
 
-    private async Task<string> UploadImageAsync(byte[] imageData, string filename)
+    private async Task<string> UploadImageAsync(byte[] imageData, string filename, CancellationToken cancellationToken)
     {
         using var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(imageData);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         content.Add(fileContent, "files", filename);
 
-        var resp = await _http.PostAsync($"{SpaceUrl}/gradio_api/upload", content);
+        var resp = await _http.PostAsync($"{SpaceUrl}/gradio_api/upload", content, cancellationToken);
         resp.EnsureSuccessStatusCode();
 
-        var result = await resp.Content.ReadAsStringAsync();
+        var result = await resp.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(result);
         return doc.RootElement[0].GetString()!;
     }
 
-    private async Task<byte[]> PollForResultAsync(string eventId, IProgress<string>? progress)
+    private async Task<byte[]> PollForResultAsync(string eventId, IProgress<string>? progress, CancellationToken cancellationToken)
     {
-        using var resp = await _http.GetStreamAsync($"{SpaceUrl}/gradio_api/call/infer/{eventId}");
+        using var resp = await _http.GetStreamAsync($"{SpaceUrl}/gradio_api/call/infer/{eventId}", cancellationToken);
         using var reader = new StreamReader(resp);
 
         string? lastImageUrl = null;
@@ -150,13 +151,14 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
 
         while (!reader.EndOfStream)
         {
-            var line = await reader.ReadLineAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+            var line = await reader.ReadLineAsync(cancellationToken);
             if (line == null) continue;
 
             if (line.StartsWith("event: "))
             {
                 var eventType = line[7..];
-                var dataLine = await reader.ReadLineAsync();
+                var dataLine = await reader.ReadLineAsync(cancellationToken);
 
                 if (eventType == "error")
                 {
@@ -205,7 +207,7 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
                     if (eventType == "complete" && lastImageUrl != null)
                     {
                         progress?.Report("Downloading result...");
-                        return await _http.GetByteArrayAsync(lastImageUrl);
+                        return await DownloadResultAsync(lastImageUrl, cancellationToken);
                     }
                 }
             }
@@ -215,10 +217,31 @@ public class HuggingFaceOutpaintService : IOutpaintProvider
         if (lastImageUrl != null)
         {
             progress?.Report("Downloading final result...");
-            return await _http.GetByteArrayAsync(lastImageUrl);
+            return await DownloadResultAsync(lastImageUrl, cancellationToken);
         }
 
         throw new TimeoutException("HuggingFace did not return a result.");
+    }
+
+    private async Task<byte[]> DownloadResultAsync(string url, CancellationToken cancellationToken)
+    {
+        if (!IsAllowedResultUrl(url))
+            throw new InvalidOperationException($"Refusing to download result from untrusted URL: {url}");
+        return await _http.GetByteArrayAsync(url, cancellationToken);
+    }
+
+    /// <summary>Only allow Hugging Face / this Space hosts (mitigates SSRF via SSE payloads).</summary>
+    private static bool IsAllowedResultUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return false;
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var host = uri.Host;
+        return host.Equals("huggingface.co", StringComparison.OrdinalIgnoreCase)
+               || host.EndsWith(".huggingface.co", StringComparison.OrdinalIgnoreCase)
+               || host.EndsWith(".hf.space", StringComparison.OrdinalIgnoreCase)
+               || host.Equals("hf.space", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DetermineAlignment(int padL, int padT, int padR, int padB)
