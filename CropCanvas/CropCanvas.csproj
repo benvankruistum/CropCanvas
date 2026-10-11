@@ -7,14 +7,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\CropCanvas.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="15.0.0" />
+    <PackageReference Include="MaterialDesignThemes" Version="5.3.2" />
+    <PackageReference Include="OpenAI" Version="2.14.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Fonts\tabler-icons.ttf" />
+    <Resource Include="Assets\CropCanvas.ico" />
   </ItemGroup>
 
   <ItemGroup>

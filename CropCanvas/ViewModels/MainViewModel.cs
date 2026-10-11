@@ -18,8 +18,11 @@ public partial class MainViewModel : ObservableObject
     private readonly SettingsService _settingsService = new();
     private readonly ScreenService _screenService = new();
     private readonly ImageService _imageService = new();
+    private readonly LogService _log = LogService.Instance;
     private readonly ComfyUIService _comfyService = new();
     private readonly StabilityAIService _stabilityService = new();
+    private readonly OpenAIService _openAIService = new();
+    private readonly HuggingFaceOutpaintService _huggingFaceService = new();
     private AppSettings _settings;
 
     public ObservableCollection<ImageItem> Images { get; } = [];
@@ -35,6 +38,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _outputFolderPath;
+
+    [ObservableProperty]
+    private string _imageCountText = "";
+
+    [ObservableProperty]
+    private string _croppedCountText = "";
 
     public string SourceFolderDisplay => string.IsNullOrEmpty(SourceFolderPath)
         ? Strings.SelectSourceFolder : Path.GetFileName(SourceFolderPath) ?? SourceFolderPath;
@@ -70,6 +79,9 @@ public partial class MainViewModel : ObservableObject
     private string _statusText = Strings.StatusSelectFolder;
 
     [ObservableProperty]
+    private string _imageAnalysisText = "";
+
+    [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
@@ -77,6 +89,17 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasOutOfBounds;
+
+    [ObservableProperty]
+    private bool _isLogVisible;
+
+    [ObservableProperty]
+    private bool _useAIPrompt = true;
+
+    [ObservableProperty]
+    private string? _openAIApiKey;
+
+    public ObservableCollection<LogEntry> LogEntries => _log.Entries;
 
     [ObservableProperty]
     private OutputFormat _selectedOutputFormat;
@@ -91,6 +114,9 @@ public partial class MainViewModel : ObservableObject
     private string? _stabilityApiKey;
 
     [ObservableProperty]
+    private string _comfyUIBaseUrl = ComfyUIConfig.DefaultBaseUrl;
+
+    [ObservableProperty]
     private string _selectedLanguage = "nl";
 
     [ObservableProperty]
@@ -98,6 +124,65 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _screenResH;
+
+    /// <summary>50–100: AI upload as % of full resolution (100 = no extra downscale).</summary>
+    [ObservableProperty]
+    private int _aiUploadScalePercent = 100;
+
+    /// <summary>1–100: Comfy/HF steps, Stability creativity; OpenAI ignores.</summary>
+    [ObservableProperty]
+    private int _aiDetailLevel = 50;
+
+    /// <summary>Optional horizontal guide line on the canvas for aligning the horizon while straightening.</summary>
+    [ObservableProperty]
+    private bool _showStraightenHorizonGuide;
+
+    /// <summary>Vertical position of the horizon guide (0 = top of image, 1 = bottom), in normalized image space.</summary>
+    [ObservableProperty]
+    private double _straightenHorizonGuideNormalizedY = 0.5;
+
+    /// <summary>Fine straightening (±3°), baked into the bitmap before crop/AI.</summary>
+    private double _rotationDegrees;
+
+    public double RotationDegrees
+    {
+        get => _rotationDegrees;
+        set
+        {
+            var v = Math.Clamp(value, -ImageConfig.RotationMaxDegrees, ImageConfig.RotationMaxDegrees);
+            if (Math.Abs(_rotationDegrees - v) < 1e-9) return;
+            _rotationDegrees = v;
+            OnPropertyChanged(nameof(RotationDegrees));
+            OnPropertyChanged(nameof(EffectiveImageWidth));
+            OnPropertyChanged(nameof(EffectiveImageHeight));
+            if (SelectedImage != null)
+            {
+                try
+                {
+                    DisplayImage = _imageService.LoadDisplayImage(SelectedImage.FilePath, ImageConfig.DisplayWidth, _rotationDegrees);
+                }
+                catch (Exception ex)
+                {
+                    StatusText = string.Format(Strings.StatusLoadError, ex.Message);
+                }
+
+                ResetCropToDefault();
+                UpdateStatusText();
+            }
+        }
+    }
+
+    /// <summary>Full-res width after applying <see cref="RotationDegrees"/>.</summary>
+    public int EffectiveImageWidth =>
+        SelectedImage == null
+            ? 0
+            : ImageService.GetRotatedDimensions(SelectedImage.OriginalWidth, SelectedImage.OriginalHeight, _rotationDegrees).Width;
+
+    /// <summary>Full-res height after applying <see cref="RotationDegrees"/>.</summary>
+    public int EffectiveImageHeight =>
+        SelectedImage == null
+            ? 0
+            : ImageService.GetRotatedDimensions(SelectedImage.OriginalWidth, SelectedImage.OriginalHeight, _rotationDegrees).Height;
 
     public string CropButtonText => HasOutOfBounds ? Strings.AICrop : Strings.Crop;
 
@@ -121,8 +206,20 @@ public partial class MainViewModel : ObservableObject
         JpegQuality = _settings.JpegQuality > 0 ? _settings.JpegQuality : ImageConfig.DefaultJpegQuality;
         SelectedProvider = _settings.OutpaintProvider;
         StabilityApiKey = _settings.StabilityApiKey;
+        UseAIPrompt = _settings.UseAIPrompt;
         if (!string.IsNullOrEmpty(StabilityApiKey))
             _stabilityService.SetApiKey(StabilityApiKey);
+        OpenAIApiKey = _settings.OpenAIApiKey;
+        if (!string.IsNullOrEmpty(OpenAIApiKey))
+            _openAIService.SetApiKey(OpenAIApiKey);
+        ComfyUIBaseUrl = string.IsNullOrWhiteSpace(_settings.ComfyUIBaseUrl)
+            ? ComfyUIConfig.DefaultBaseUrl
+            : _settings.ComfyUIBaseUrl;
+        _comfyService.SetBaseUrl(ComfyUIBaseUrl);
+
+        var scalePct = _settings.AiUploadScalePercent;
+        AiUploadScalePercent = scalePct is >= 50 and <= 100 ? scalePct : 100;
+        AiDetailLevel = _settings.AiDetailLevel is >= 1 and <= 100 ? _settings.AiDetailLevel : 50;
 
         // Apply language setting
         _selectedLanguage = _settings.Language ?? "nl";
@@ -133,6 +230,22 @@ public partial class MainViewModel : ObservableObject
         // Auto-load source folder if previously set
         if (!string.IsNullOrEmpty(SourceFolderPath) && Directory.Exists(SourceFolderPath))
             _ = LoadImagesAsync(SourceFolderPath);
+
+        _cropSuccessToastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
+        _cropSuccessToastTimer.Tick += (_, _) =>
+        {
+            _cropSuccessToastTimer.Stop();
+            IsCropSuccessToastVisible = false;
+        };
+    }
+
+    private void ShowCropSuccessToast(string title, string detail)
+    {
+        CropSuccessToastTitle = title;
+        CropSuccessToastDetail = detail;
+        IsCropSuccessToastVisible = true;
+        _cropSuccessToastTimer.Stop();
+        _cropSuccessToastTimer.Start();
     }
 
     partial void OnAspectRatioWidthChanged(int value) => UpdateCropAspectRatio();
@@ -141,11 +254,17 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedProviderChanged(OutpaintProvider value)
     {
         OnPropertyChanged(nameof(IsStabilityProvider));
+        OnPropertyChanged(nameof(IsOpenAIProvider));
+        OnPropertyChanged(nameof(IsComfyProvider));
+        OnPropertyChanged(nameof(NeedsApiKey));
         OnPropertyChanged(nameof(HasAIProvider));
         SaveSettings();
     }
 
     public bool IsStabilityProvider => SelectedProvider == OutpaintProvider.StabilityAI;
+    public bool IsOpenAIProvider => SelectedProvider == OutpaintProvider.OpenAI;
+    public bool IsComfyProvider => SelectedProvider == OutpaintProvider.ComfyUI;
+    public bool NeedsApiKey => IsStabilityProvider || IsOpenAIProvider;
     public bool HasAIProvider => SelectedProvider != OutpaintProvider.Geen;
 
     partial void OnStabilityApiKeyChanged(string? value)
@@ -154,6 +273,23 @@ public partial class MainViewModel : ObservableObject
             _stabilityService.SetApiKey(value);
         SaveSettings();
     }
+
+    partial void OnOpenAIApiKeyChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+            _openAIService.SetApiKey(value);
+        SaveSettings();
+    }
+
+    partial void OnComfyUIBaseUrlChanged(string value)
+    {
+        _comfyService.SetBaseUrl(value);
+        SaveSettings();
+    }
+
+    partial void OnAiUploadScalePercentChanged(int value) => SaveSettings();
+
+    partial void OnAiDetailLevelChanged(int value) => SaveSettings();
 
     partial void OnSelectedLanguageChanged(string value)
     {
@@ -206,8 +342,14 @@ public partial class MainViewModel : ObservableObject
     {
         if (value == null)
         {
+            _rotationDegrees = 0;
+            OnPropertyChanged(nameof(RotationDegrees));
+            OnPropertyChanged(nameof(EffectiveImageWidth));
+            OnPropertyChanged(nameof(EffectiveImageHeight));
             DisplayImage = null;
             StatusText = Strings.StatusSelectImage;
+            ShowStraightenHorizonGuide = false;
+            StraightenHorizonGuideNormalizedY = 0.5;
             return;
         }
 
@@ -216,9 +358,43 @@ public partial class MainViewModel : ObservableObject
             // DisplayImage must be set FIRST — this triggers ImageAspectRatio
             // in the overlay via code-behind, so the overlay knows the correct
             // image bounds before normalized crop coords are set.
-            DisplayImage = _imageService.LoadDisplayImage(value.FilePath);
+            _log.Info($"Loading: {value.FileName} ({value.OriginalWidth}x{value.OriginalHeight})");
+            ShowStraightenHorizonGuide = false;
+            StraightenHorizonGuideNormalizedY = 0.5;
+            _rotationDegrees = 0;
+            OnPropertyChanged(nameof(RotationDegrees));
+            OnPropertyChanged(nameof(EffectiveImageWidth));
+            OnPropertyChanged(nameof(EffectiveImageHeight));
+            DisplayImage = _imageService.LoadDisplayImage(value.FilePath, ImageConfig.DisplayWidth, 0);
             ResetCropToDefault();
             UpdateStatusText();
+
+            // Run image analysis in background
+            var filePath = value.FilePath;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    var bytes = _imageService.LoadImageBytes(filePath);
+                    var analysis = ImageAnalyzer.Analyze(bytes);
+                    var text = $"\u2728 {analysis.TimeOfDay}  |  \ud83c\udf43 {analysis.Season}  |  " +
+                               $"\ud83c\udfa8 {analysis.ColorPalette}  |  \ud83d\udca1 {analysis.LightingDirection}  |  " +
+                               $"\u2600 {analysis.Mood}  |  " +
+                               $"Brightness: {analysis.AverageBrightness:P0}  |  " +
+                               $"Warmth: {(analysis.WarmthScore > 0 ? "+" : "")}{analysis.WarmthScore:F2}";
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        ImageAnalysisText = text;
+                        _log.Info($"Analysis: {analysis.TimeOfDay}, {analysis.Season}, {analysis.Mood}");
+                        _log.Info($"Palette: {analysis.ColorPalette} | Light: {analysis.LightingDirection}");
+                        _log.Info($"Brightness: {analysis.AverageBrightness:P0} | Warmth: {analysis.WarmthScore:+0.00;-0.00}");
+                    });
+                }
+                catch
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() => ImageAnalysisText = "");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -230,7 +406,9 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedImage == null || CropAspectRatio <= 0) return;
 
-        double imageAspect = (double)SelectedImage.OriginalWidth / SelectedImage.OriginalHeight;
+        var (effW, effH) = ImageService.GetRotatedDimensions(
+            SelectedImage.OriginalWidth, SelectedImage.OriginalHeight, _rotationDegrees);
+        double imageAspect = (double)effW / effH;
 
         if (Math.Abs(CropAspectRatio - imageAspect) < 0.01)
         {
@@ -262,8 +440,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedImage == null) return;
 
-        var origW = SelectedImage.OriginalWidth;
-        var origH = SelectedImage.OriginalHeight;
+        var origW = EffectiveImageWidth;
+        var origH = EffectiveImageHeight;
         var cropW = (int)(NormalizedCropWidth * origW);
         var cropH = (int)(NormalizedCropHeight * origH);
 
@@ -368,16 +546,22 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            var cropW = (int)(NormalizedCropWidth * EffectiveImageWidth);
+            var cropH = (int)(NormalizedCropHeight * EffectiveImageHeight);
+            _log.Info($"Cropping {SelectedImage.FileName} → {cropW}x{cropH}");
+
             var outputPath = _imageService.CropAndSave(
                 SelectedImage.FilePath,
                 NormalizedCropX, NormalizedCropY, NormalizedCropWidth, NormalizedCropHeight,
-                OutputFolderPath!, SelectedOutputFormat, JpegQuality);
+                OutputFolderPath!, SelectedOutputFormat, JpegQuality, _rotationDegrees);
 
             var fileName = Path.GetFileName(outputPath);
             SelectedImage.IsCropped = true;
-            var cropW = (int)(NormalizedCropWidth * SelectedImage.OriginalWidth);
-            var cropH = (int)(NormalizedCropHeight * SelectedImage.OriginalHeight);
-            StatusText = string.Format(Strings.StatusSaved, fileName, cropW, cropH);
+            UpdateImageCounts();
+            var savedMsg = string.Format(Strings.StatusSaved, fileName, cropW, cropH);
+            StatusText = savedMsg;
+            ShowCropSuccessToast(Strings.ToastCropSuccessTitle, savedMsg);
+            _log.Success($"Saved: {outputPath}");
         }
         catch (Exception ex)
         {
@@ -385,72 +569,133 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private CancellationTokenSource? _outpaintCts;
+
+    [ObservableProperty]
+    private string _outpaintTaskLabel = "";
+
+    [ObservableProperty]
+    private bool _isCropSuccessToastVisible;
+
+    [ObservableProperty]
+    private string _cropSuccessToastTitle = "";
+
+    [ObservableProperty]
+    private string _cropSuccessToastDetail = "";
+
+    private readonly DispatcherTimer _cropSuccessToastTimer;
+
+    [RelayCommand]
+    private void CancelOutpaint()
+    {
+        _outpaintCts?.Cancel();
+        _log.Warn("Outpainting cancelled by user.");
+        StatusText = "Outpainting cancelled.";
+    }
+
+    [RelayCommand]
+    private void ResetRotation() => RotationDegrees = 0;
+
     [RelayCommand]
     private async Task OutpaintAsync()
     {
         if (SelectedImage == null || IsOutpainting) return;
 
+        // Capture all state before starting — user may navigate away
+        var sourceFilePath = SelectedImage.FilePath;
+        var sourceFileName = SelectedImage.FileName;
+        var rotationDegrees = _rotationDegrees;
+        var (origW, origH) = ImageService.GetRotatedDimensions(
+            SelectedImage.OriginalWidth, SelectedImage.OriginalHeight, rotationDegrees);
+        var provider = SelectedProvider;
+        var normX = NormalizedCropX;
+        var normY = NormalizedCropY;
+        var normW = NormalizedCropWidth;
+        var normH = NormalizedCropHeight;
+
+        var pad = PaddingCalculator.Calculate(normX, normY, normW, normH, origW, origH);
+        if (!PaddingCalculator.HasOutOfBounds(pad))
+        {
+            StatusText = Strings.StatusNoPadding;
+            return;
+        }
+
+        if (provider == OutpaintProvider.StabilityAI && !_stabilityService.HasApiKey)
+        {
+            StatusText = Strings.StatusEnterApiKey;
+            return;
+        }
+        if (provider == OutpaintProvider.OpenAI && !_openAIService.HasApiKey)
+        {
+            StatusText = "Enter an OpenAI API key first.";
+            return;
+        }
+
+        _outpaintCts?.Cancel();
+        _outpaintCts = new CancellationTokenSource();
+        var ct = _outpaintCts.Token;
+
+        IsOutpainting = true;
+        OutpaintTaskLabel = $"AI: {sourceFileName}";
+        _log.Info($"--- Outpainting started ({provider}) for {sourceFileName} ---");
+
+        IProgress<string> progress = new Progress<string>(msg =>
+        {
+            StatusText = msg;
+            OutpaintTaskLabel = $"AI: {sourceFileName} — {msg}";
+            _log.Info(msg);
+        });
+
         try
         {
-            IsOutpainting = true;
-            IProgress<string> progress = new Progress<string>(msg => StatusText = msg);
-
-            // Calculate padding in pixels
-            var origW = SelectedImage.OriginalWidth;
-            var origH = SelectedImage.OriginalHeight;
-            var pad = PaddingCalculator.Calculate(NormalizedCropX, NormalizedCropY, NormalizedCropWidth, NormalizedCropHeight, origW, origH);
-            var padLeft = pad.Left;
-            var padTop = pad.Top;
-            var padRight = pad.Right;
-            var padBottom = pad.Bottom;
-
-            if (!PaddingCalculator.HasOutOfBounds(pad))
+            var aiOpts = new AiOutpaintOptions
             {
-                StatusText = Strings.StatusNoPadding;
-                return;
-            }
+                UploadScalePercent = AiUploadScalePercent,
+                DetailLevel = AiDetailLevel
+            };
 
+            progress.Report(Strings.StatusCropping);
             byte[] imageBytes;
             string fileName;
-            byte[] resultBytes;
-
-            if (SelectedProvider == OutpaintProvider.StabilityAI)
+            if (Math.Abs(rotationDegrees) < 1e-6)
             {
-                // Stability AI: send full image — the service handles scaling/aspect ratio
-                if (!_stabilityService.HasApiKey)
-                {
-                    StatusText = Strings.StatusEnterApiKey;
-                    return;
-                }
-
-                progress.Report(Strings.StatusCropping);
-                imageBytes = _imageService.LoadImageBytes(SelectedImage.FilePath);
-                fileName = Path.GetFileName(SelectedImage.FilePath);
-
-                resultBytes = await _stabilityService.OutpaintAsync(imageBytes, fileName,
-                    padLeft, padTop, padRight, padBottom, progress);
+                imageBytes = _imageService.LoadImageBytes(sourceFilePath);
+                fileName = sourceFileName;
             }
             else
             {
-                // ComfyUI: send only the visible portion (no size/ratio limits)
-                var visibleX = Math.Max(0.0, NormalizedCropX);
-                var visibleY = Math.Max(0.0, NormalizedCropY);
-                var visibleRight = Math.Min(1.0, NormalizedCropX + NormalizedCropWidth);
-                var visibleBottom = Math.Min(1.0, NormalizedCropY + NormalizedCropHeight);
-                var visibleW = visibleRight - visibleX;
-                var visibleH = visibleBottom - visibleY;
-
-                progress.Report(Strings.StatusCropping);
-                var filePath = SelectedImage.FilePath;
-                imageBytes = await Task.Run(() => _imageService.CropToBytes(filePath,
-                    visibleX, visibleY, visibleW, visibleH));
-                fileName = Path.GetFileNameWithoutExtension(SelectedImage.FilePath) + "_crop.png";
-
-                resultBytes = await _comfyService.OutpaintAsync(imageBytes, fileName,
-                    padLeft, padTop, padRight, padBottom, progress);
+                imageBytes = _imageService.GetFullImagePngBytes(sourceFilePath, rotationDegrees);
+                fileName = Path.ChangeExtension(sourceFileName, ".png");
             }
 
-            // Load and display result
+            byte[] resultBytes;
+            ct.ThrowIfCancellationRequested();
+
+            if (provider == OutpaintProvider.StabilityAI)
+            {
+                resultBytes = await _stabilityService.OutpaintAsync(imageBytes, fileName,
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+            }
+            else if (provider == OutpaintProvider.OpenAI)
+            {
+                resultBytes = await _openAIService.OutpaintAsync(imageBytes, fileName,
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+            }
+            else if (provider == OutpaintProvider.HuggingFace)
+            {
+                resultBytes = await _huggingFaceService.OutpaintAsync(imageBytes, fileName,
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+            }
+            else
+            {
+                // ComfyUI: send full image — ImagePadForOutpaint handles the padding
+                resultBytes = await _comfyService.OutpaintAsync(imageBytes, fileName,
+                    pad.Left, pad.Top, pad.Right, pad.Bottom, UseAIPrompt, progress, aiOpts);
+            }
+
+            ct.ThrowIfCancellationRequested();
+
+            // Save result
             progress.Report(Strings.StatusResultLoading);
             var resultImage = _imageService.LoadFromBytes(resultBytes);
 
@@ -459,26 +704,36 @@ public partial class MainViewModel : ObservableObject
             var tempPath = Path.Combine(tempDir, $"outpaint_{DateTime.Now:yyyyMMdd_HHmmss}.png");
             File.WriteAllBytes(tempPath, resultBytes);
 
+            _log.Success($"Outpainting complete: {resultImage.PixelWidth}x{resultImage.PixelHeight}");
+            _log.Info($"Saved to: {tempPath}");
+
+            // Show result — load as new display image
             var newItem = new ImageItem(tempPath)
             {
                 OriginalWidth = resultImage.PixelWidth,
                 OriginalHeight = resultImage.PixelHeight
             };
 
-            DisplayImage = _imageService.LoadDisplayImage(tempPath);
-            _selectedImage = newItem;
-            OnPropertyChanged(nameof(SelectedImage));
-            ResetCropToDefault();
+            SelectedImage = newItem;
 
-            StatusText = string.Format(Strings.StatusOutpaintDone, resultImage.PixelWidth, resultImage.PixelHeight);
+            var doneMsg = string.Format(Strings.StatusOutpaintDone, resultImage.PixelWidth, resultImage.PixelHeight);
+            StatusText = doneMsg;
+            ShowCropSuccessToast(Strings.ToastOutpaintSuccessTitle, doneMsg);
+        }
+        catch (OperationCanceledException)
+        {
+            _log.Warn("Outpainting was cancelled.");
         }
         catch (Exception ex)
         {
             StatusText = string.Format(Strings.StatusOutpaintError, ex.Message);
+            _log.Error($"Outpainting failed: {ex.Message}");
         }
         finally
         {
             IsOutpainting = false;
+            OutpaintTaskLabel = "";
+            _log.Info("--- Outpainting ended ---");
         }
     }
 
@@ -527,6 +782,7 @@ public partial class MainViewModel : ObservableObject
         });
 
         IsLoading = false;
+        UpdateImageCounts();
         StatusText = string.Format(Strings.StatusImagesFound, Images.Count);
     }
 
@@ -540,6 +796,13 @@ public partial class MainViewModel : ObservableObject
             .Any(f => Path.GetFileNameWithoutExtension(f).StartsWith($"{baseName}_crop", StringComparison.OrdinalIgnoreCase));
     }
 
+    private void UpdateImageCounts()
+    {
+        ImageCountText = $"{Images.Count} foto's";
+        var cropped = Images.Count(i => i.IsCropped);
+        CroppedCountText = cropped > 0 ? $"{cropped} klaar" : "";
+    }
+
     private void SaveSettings()
     {
         _settings.SourceFolderPath = SourceFolderPath;
@@ -551,7 +814,12 @@ public partial class MainViewModel : ObservableObject
         _settings.JpegQuality = JpegQuality;
         _settings.OutpaintProvider = SelectedProvider;
         _settings.StabilityApiKey = StabilityApiKey;
+        _settings.OpenAIApiKey = OpenAIApiKey;
+        _settings.ComfyUIBaseUrl = ComfyUIBaseUrl;
+        _settings.UseAIPrompt = UseAIPrompt;
         _settings.Language = SelectedLanguage;
+        _settings.AiUploadScalePercent = AiUploadScalePercent;
+        _settings.AiDetailLevel = AiDetailLevel;
         _settingsService.Save(_settings);
     }
 }

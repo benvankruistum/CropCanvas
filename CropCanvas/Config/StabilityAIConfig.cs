@@ -8,5 +8,5 @@ public static class StabilityAIConfig
     public const long MaxTotalPixels = 9_437_184;
     public const double MinAspect = 1.0 / 2.5;
     public const double MaxAspect = 2.5;
-    public const double DefaultCreativity = 0.5;
+    public const double DefaultCreativity = 0.25; // Low = conservative, just extend existing textures
 }

@@ -111,6 +111,24 @@
   <data name="StatusSaveError" xml:space="preserve">
     <value>Error saving: {0}</value>
   </data>
+  <data name="ToastCropSuccessTitle" xml:space="preserve">
+    <value>Crop saved</value>
+  </data>
+  <data name="ToastOutpaintSuccessTitle" xml:space="preserve">
+    <value>AI result ready</value>
+  </data>
+  <data name="AiInputMaxSideLabel" xml:space="preserve">
+    <value>AI input (% of original)</value>
+  </data>
+  <data name="AiInputMaxSideTooltip" xml:space="preserve">
+    <value>Resolution sent to the AI as a percentage of the full image or canvas (longest edge). 100% = full quality (APIs may still apply their own limits). Lower = faster uploads.</value>
+  </data>
+  <data name="AiDetailLevelLabel" xml:space="preserve">
+    <value>AI detail</value>
+  </data>
+  <data name="AiDetailLevelTooltip" xml:space="preserve">
+    <value>ComfyUI: more sampler steps. HuggingFace: more diffusion steps. Stability AI: higher creativity. OpenAI does not use this slider. Higher is usually slower.</value>
+  </data>
   <data name="StatusFormat" xml:space="preserve">
     <value>Original: {0}x{1} | Crop: {2}x{3} | Ratio: {4}:{5}</value>
   </data>
@@ -137,7 +155,13 @@
     <value>Connecting to ComfyUI...</value>
   </data>
   <data name="StatusComfyNotFound" xml:space="preserve">
-    <value>ComfyUI not reachable at 127.0.0.1:8188 - start ComfyUI first.</value>
+    <value>ComfyUI not reachable at {0} — start ComfyUI or check the server URL.</value>
+  </data>
+  <data name="ComfyServerUrl" xml:space="preserve">
+    <value>Server URL</value>
+  </data>
+  <data name="ComfyUrlPlaceholder" xml:space="preserve">
+    <value>http://127.0.0.1:8188</value>
   </data>
   <data name="StatusNoModel" xml:space="preserve">
     <value>No model found. Download an inpainting model (e.g. sd-v1-5-inpainting).</value>
@@ -244,5 +268,20 @@
   </data>
   <data name="AIOutpainting" xml:space="preserve">
     <value>AI Outpainting</value>
+  </data>
+  <data name="RotationLabel" xml:space="preserve">
+    <value>Straighten</value>
+  </data>
+  <data name="RotationTooltip" xml:space="preserve">
+    <value>Fine rotation (±3°). Applied before crop and AI; export stays axis-aligned.</value>
+  </data>
+  <data name="ResetRotation" xml:space="preserve">
+    <value>Reset rotation</value>
+  </data>
+  <data name="StraightenGuideLineLabel" xml:space="preserve">
+    <value>Horizon line</value>
+  </data>
+  <data name="StraightenGuideLineTooltip" xml:space="preserve">
+    <value>Show a horizontal guide on the photo. Drag it vertically to align with the horizon while straightening.</value>
   </data>
 </root>

@@ -111,6 +111,24 @@
   <data name="StatusSaveError" xml:space="preserve">
     <value>Fout bij opslaan: {0}</value>
   </data>
+  <data name="ToastCropSuccessTitle" xml:space="preserve">
+    <value>Uitsnijden gelukt</value>
+  </data>
+  <data name="ToastOutpaintSuccessTitle" xml:space="preserve">
+    <value>AI-resultaat klaar</value>
+  </data>
+  <data name="AiInputMaxSideLabel" xml:space="preserve">
+    <value>AI-invoer (% van origineel)</value>
+  </data>
+  <data name="AiInputMaxSideTooltip" xml:space="preserve">
+    <value>Resolutie naar de AI als percentage van de volledige afbeelding of canvas (langste zijde). 100% = maximale kwaliteit (API’s kunnen eigen limieten hebben). Lager = sneller uploaden.</value>
+  </data>
+  <data name="AiDetailLevelLabel" xml:space="preserve">
+    <value>AI-detail</value>
+  </data>
+  <data name="AiDetailLevelTooltip" xml:space="preserve">
+    <value>ComfyUI: meer sampler-stappen. HuggingFace: meer diffusie-stappen. Stability AI: hogere creativiteit. OpenAI gebruikt deze schuif niet. Hoger is meestal langzamer.</value>
+  </data>
   <data name="StatusFormat" xml:space="preserve">
     <value>Original: {0}x{1} | Crop: {2}x{3} | Ratio: {4}:{5}</value>
   </data>
@@ -137,7 +155,13 @@
     <value>Verbinden met ComfyUI...</value>
   </data>
   <data name="StatusComfyNotFound" xml:space="preserve">
-    <value>ComfyUI niet bereikbaar op 127.0.0.1:8188 &#x2014; start ComfyUI eerst op.</value>
+    <value>ComfyUI niet bereikbaar op {0} &#x2014; start ComfyUI of controleer de server-URL.</value>
+  </data>
+  <data name="ComfyServerUrl" xml:space="preserve">
+    <value>Server-URL</value>
+  </data>
+  <data name="ComfyUrlPlaceholder" xml:space="preserve">
+    <value>http://127.0.0.1:8188</value>
   </data>
   <data name="StatusNoModel" xml:space="preserve">
     <value>Geen model gevonden. Download een inpainting model (bijv. sd-v1-5-inpainting).</value>
@@ -244,5 +268,20 @@
   </data>
   <data name="AIOutpainting" xml:space="preserve">
     <value>AI Outpainting</value>
+  </data>
+  <data name="RotationLabel" xml:space="preserve">
+    <value>Recht trekken</value>
+  </data>
+  <data name="RotationTooltip" xml:space="preserve">
+    <value>Fijne rotatie (±3°). Wordt toegepast vóór crop en AI; export blijft rechthoekig.</value>
+  </data>
+  <data name="ResetRotation" xml:space="preserve">
+    <value>Rotatie resetten</value>
+  </data>
+  <data name="StraightenGuideLineLabel" xml:space="preserve">
+    <value>Horizonlijn</value>
+  </data>
+  <data name="StraightenGuideLineTooltip" xml:space="preserve">
+    <value>Toon een horizontale hulplijn op de foto. Sleep hem verticaal om met de horizon mee te lopen bij het rechttrekken.</value>
   </data>
 </root>

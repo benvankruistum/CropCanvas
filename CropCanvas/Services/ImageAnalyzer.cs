@@ -72,16 +72,16 @@ public static class ImageAnalyzer
     {
         var parts = new List<string>
         {
-            "photorealistic",
-            "natural seamless continuation",
+            // Priority: blend in, don't attract attention
+            "seamless unnoticeable background extension",
+            "empty plain continuation, no new subjects",
             $"{analysis.TimeOfDay} lighting",
-            $"{analysis.Mood} atmosphere",
             $"{analysis.ColorPalette}",
             $"{analysis.LightingDirection}",
-            $"{analysis.Season} scene",
-            "consistent texture and detail",
-            "matching perspective and depth of field",
-            "8k, sharp focus"
+            $"{analysis.Season}",
+            "matching texture, same atmosphere",
+            "subtle, boring, unremarkable",
+            "photorealistic"
         };
 
         return string.Join(", ", parts);
@@ -89,7 +89,9 @@ public static class ImageAnalyzer
 
     public static string GenerateNegativePrompt()
     {
-        return "visible seam, border, different lighting, different season, different time of day, " +
+        return "new objects, people, animals, faces, buildings, cars, signs, " +
+               "interesting details, focal point, center of attention, surprising elements, " +
+               "visible seam, border, different lighting, different season, different time of day, " +
                "color mismatch, brightness mismatch, blurry, artifacts, low quality, watermark, " +
                "text, logo, distorted, deformed, duplicate, out of focus, " +
                "sudden change in vegetation, inconsistent shadows";

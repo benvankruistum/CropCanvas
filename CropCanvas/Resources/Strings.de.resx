@@ -111,6 +111,24 @@
   <data name="StatusSaveError" xml:space="preserve">
     <value>Fehler beim Speichern: {0}</value>
   </data>
+  <data name="ToastCropSuccessTitle" xml:space="preserve">
+    <value>Zuschneiden gespeichert</value>
+  </data>
+  <data name="ToastOutpaintSuccessTitle" xml:space="preserve">
+    <value>KI-Ergebnis bereit</value>
+  </data>
+  <data name="AiInputMaxSideLabel" xml:space="preserve">
+    <value>KI-Eingabe (% vom Original)</value>
+  </data>
+  <data name="AiInputMaxSideTooltip" xml:space="preserve">
+    <value>Aufloesung fuer die KI als Prozent der Vollaufloesung (laengste Kante). 100% = beste Qualitaet (APIs koennen eigene Grenzen haben). Niedriger = schnelleres Hochladen.</value>
+  </data>
+  <data name="AiDetailLevelLabel" xml:space="preserve">
+    <value>KI-Detail</value>
+  </data>
+  <data name="AiDetailLevelTooltip" xml:space="preserve">
+    <value>ComfyUI: mehr Sampler-Schritte. HuggingFace: mehr Diffusions-Schritte. Stability AI: hoehere Kreativitaet. OpenAI nutzt diesen Schieber nicht. Hoeher ist meist langsamer.</value>
+  </data>
   <data name="StatusFormat" xml:space="preserve">
     <value>Original: {0}x{1} | Crop: {2}x{3} | Ratio: {4}:{5}</value>
   </data>
@@ -137,7 +155,13 @@
     <value>Verbindung zu ComfyUI...</value>
   </data>
   <data name="StatusComfyNotFound" xml:space="preserve">
-    <value>ComfyUI nicht erreichbar unter 127.0.0.1:8188 &#x2014; starten Sie ComfyUI zuerst.</value>
+    <value>ComfyUI nicht erreichbar unter {0} &#x2014; ComfyUI starten oder Server-URL pr&#xFC;fen.</value>
+  </data>
+  <data name="ComfyServerUrl" xml:space="preserve">
+    <value>Server-URL</value>
+  </data>
+  <data name="ComfyUrlPlaceholder" xml:space="preserve">
+    <value>http://127.0.0.1:8188</value>
   </data>
   <data name="StatusNoModel" xml:space="preserve">
     <value>Kein Modell gefunden. Laden Sie ein Inpainting-Modell herunter (z.B. sd-v1-5-inpainting).</value>
@@ -244,5 +268,20 @@
   </data>
   <data name="AIOutpainting" xml:space="preserve">
     <value>KI Outpainting</value>
+  </data>
+  <data name="RotationLabel" xml:space="preserve">
+    <value>Ausrichten</value>
+  </data>
+  <data name="RotationTooltip" xml:space="preserve">
+    <value>Feine Drehung (±3°). Wird vor Zuschnitt und KI angewendet; Export bleibt achsenparallel.</value>
+  </data>
+  <data name="ResetRotation" xml:space="preserve">
+    <value>Drehung zurucksetzen</value>
+  </data>
+  <data name="StraightenGuideLineLabel" xml:space="preserve">
+    <value>Horizontlinie</value>
+  </data>
+  <data name="StraightenGuideLineTooltip" xml:space="preserve">
+    <value>Horizontale Hilfslinie auf dem Foto. Vertikal ziehen, um sie an den Horizont anzupassen.</value>
   </data>
 </root>

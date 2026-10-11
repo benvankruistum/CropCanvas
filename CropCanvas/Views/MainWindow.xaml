@@ -5,11 +5,24 @@
         xmlns:controls="clr-namespace:CropCanvas.Controls"
         xmlns:converters="clr-namespace:CropCanvas.Converters"
         xmlns:res="clr-namespace:CropCanvas.Resources"
-        Title="CropCanvas"
-        Width="1200" Height="800"
-        MinWidth="800" MinHeight="500"
-        Background="{StaticResource BaseBrush}"
-        WindowStartupLocation="CenterScreen">
+        xmlns:models="clr-namespace:CropCanvas.Models"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Icon="pack://application:,,,/Assets/CropCanvas.ico"
+        Title="CropCanvas" Width="1400" Height="850"
+        MinWidth="900" MinHeight="550"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        StateChanged="Window_StateChanged">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <Window.DataContext>
         <vm:MainViewModel/>
@@ -20,156 +33,82 @@
         <converters:NullToVisibilityConverter x:Key="NullVis"/>
         <FontFamily x:Key="TI">pack://application:,,,/Fonts/#tabler-icons</FontFamily>
 
-        <!-- Scrollbar dark theme -->
         <Style TargetType="ScrollBar">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="MinWidth" Value="8"/>
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="MinWidth" Value="6"/>
         </Style>
 
-        <!-- ComboBox: dark text on light background, including dropdown items -->
-        <Style x:Key="ReadableCombo" TargetType="ComboBox">
-            <Setter Property="Background" Value="#F0F0F0"/>
-            <Setter Property="Foreground" Value="#111111"/>
-            <Setter Property="BorderBrush" Value="#999"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Background" Value="White"/>
-                        <Setter Property="Foreground" Value="#111111"/>
-                        <Setter Property="Padding" Value="8,6"/>
-                        <Setter Property="FontSize" Value="14"/>
-                        <Style.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter Property="Background" Value="#D0D8F0"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Setter.Value>
-            </Setter>
+        <!-- Pill tag style for analysis -->
+        <Style x:Key="PillTag" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface0Brush}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Margin" Value="2,0"/>
         </Style>
     </Window.Resources>
 
+    <Border Background="{DynamicResource MaterialDesignPaper}"
+            SnapsToDevicePixels="True"
+            TextElement.Foreground="{StaticResource TextBrush}">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- ============ LEFT SIDEBAR ============ -->
-        <Border Grid.Column="0" Background="{StaticResource MantleBrush}" Padding="10,10,10,8">
-            <DockPanel>
-
-                <!-- Folder buttons together at top -->
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <Button Command="{Binding SelectSourceFolderCommand}"
-                            HorizontalAlignment="Stretch" Padding="10,8" Margin="0,0,0,4"
-                            ToolTip="{Binding SourceFolderPath}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeaad;"
-                                       FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock VerticalAlignment="Center" FontSize="14"
-                                       Text="{Binding SourceFolderDisplay, FallbackValue='Bronmap selecteren'}"/>
-                        </StackPanel>
+        <!-- Custom title bar (geen klassieke Windows-titelbalk) -->
+        <materialDesign:ColorZone Grid.Row="0" Mode="PrimaryDark" Padding="0"
+                                  materialDesign:ElevationAssist.Elevation="Dp2"
+                                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <DockPanel LastChildFill="False" Height="40">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Image Source="pack://application:,,,/Assets/CropCanvas.ico" Width="22" Height="22"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="CropCanvas" VerticalAlignment="Center" Margin="10,0,0,0"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="White"/>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Stretch">
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="Minimize_Click" ToolTip="Minimaliseren"
+                            Width="46" Height="40" Padding="0" Cursor="Hand"
+                            Foreground="White">
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xf1f2;" FontSize="17" Foreground="White" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Command="{Binding SelectOutputFolderCommand}"
-                            HorizontalAlignment="Stretch" Padding="10,8"
-                            ToolTip="{Binding OutputFolderPath}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xea96;"
-                                       FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock VerticalAlignment="Center" FontSize="14"
-                                       Text="{Binding OutputFolderDisplay, FallbackValue='Output map selecteren'}"/>
-                        </StackPanel>
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="Maximize_Click" ToolTip="Maximaliseren"
+                            Width="46" Height="40" Padding="0" Cursor="Hand"
+                            Foreground="White">
+                        <TextBlock x:Name="MaximizeIconGlyph" FontFamily="{StaticResource TI}" Text="&#xf1f1;" FontSize="17" Foreground="White" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="Close_Click" ToolTip="Sluiten"
+                            Width="46" Height="40" Padding="0" Cursor="Hand"
+                            Foreground="White">
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb55;" FontSize="17" Foreground="White" HorizontalAlignment="Center"/>
                     </Button>
                 </StackPanel>
-
-                <!-- Image list: polaroid style -->
-                <ListBox ItemsSource="{Binding Images}"
-                         SelectedItem="{Binding SelectedImage}"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ScrollViewer.CanContentScroll="False"
-                         VirtualizingPanel.ScrollUnit="Pixel">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <!-- Polaroid: white border, image top, name in white area below -->
-                            <Grid Margin="4,4" Width="208">
-                                <Border Background="#EEEEF2" CornerRadius="4"
-                                        Padding="6,6,6,0" Effect="{x:Null}">
-                                    <StackPanel>
-                                        <Grid>
-                                            <Image Source="{Binding Thumbnail}" Height="90"
-                                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                            <!-- Cropped badge -->
-                                            <Border Background="{StaticResource GreenBrush}" CornerRadius="7"
-                                                    Padding="4,2" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                    Margin="0,-2,-2,0"
-                                                    Visibility="{Binding IsCropped, Converter={StaticResource BoolVis}}">
-                                                <TextBlock FontFamily="{StaticResource TI}" Text="&#xea5e;"
-                                                           FontSize="10" Foreground="#111"/>
-                                            </Border>
-                                        </Grid>
-                                        <TextBlock Text="{Binding FileName}" FontSize="11"
-                                                   Foreground="#444" FontFamily="Segoe UI"
-                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                                                   HorizontalAlignment="Center"
-                                                   Margin="0,4,0,6" ToolTip="{Binding FileName}"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                                CornerRadius="6" Padding="2" Margin="0,1">
-                                            <ContentPresenter/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface0Brush}"/>
-                                            </Trigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface0Brush}"/>
-                                                <Setter Property="Cursor" Value="Hand"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                </ListBox>
             </DockPanel>
-        </Border>
+        </materialDesign:ColorZone>
 
-        <!-- SPLITTER -->
-        <GridSplitter Grid.Column="1" Width="2" Background="{StaticResource Surface1Brush}"
-                      HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
-
-        <!-- ============ MAIN CONTENT ============ -->
-        <DockPanel Grid.Column="2">
-
-            <!-- TOP BAR: Ratio -->
-            <Border DockPanel.Dock="Top" Background="{StaticResource MantleBrush}"
-                    Padding="12,7" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{x:Static res:Strings.Ratio}" VerticalAlignment="Center" FontSize="14"
-                               Margin="0,0,8,0" FontWeight="SemiBold"/>
-
-                    <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="13"
-                               Foreground="{StaticResource SubtextBrush}">
+        <!-- ============ TOP BAR: Ratio (full width) ============ -->
+        <Border Grid.Row="1" Background="{StaticResource MantleBrush}"
+                Padding="12,6" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Section: Ratio label + resolution -->
+                <TextBlock FontFamily="{StaticResource TI}" Text="&#xed30;"
+                           FontSize="14" Foreground="{StaticResource SubtextBrush}"
+                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="Ratio" FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Border Background="{StaticResource Surface0Brush}" CornerRadius="4" Padding="8,3"
+                        VerticalAlignment="Center" Margin="0,0,0,0">
+                    <TextBlock VerticalAlignment="Center" FontSize="12"
+                               Foreground="{StaticResource TextBrush}">
                         <TextBlock.Text>
                             <MultiBinding StringFormat="{}{0}x{1}">
                                 <Binding Path="ScreenResW"/>
@@ -177,198 +116,646 @@
                             </MultiBinding>
                         </TextBlock.Text>
                     </TextBlock>
+                </Border>
 
-                    <TextBox Text="{Binding AspectRatioWidth, UpdateSourceTrigger=PropertyChanged}"
-                             Width="38" VerticalAlignment="Center" FontSize="14" Padding="3,3"
-                             IsEnabled="{Binding UseCustomAspectRatio}" TextAlignment="Center"/>
-                    <TextBlock Text=":" VerticalAlignment="Center" Margin="3,0" FontSize="14"/>
-                    <TextBox Text="{Binding AspectRatioHeight, UpdateSourceTrigger=PropertyChanged}"
-                             Width="38" VerticalAlignment="Center" FontSize="14" Padding="3,3"
-                             IsEnabled="{Binding UseCustomAspectRatio}" TextAlignment="Center"/>
+                <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="14,2,14,2" Height="18"/>
 
-                    <!-- Lock/unlock toggle for custom ratio -->
-                    <Button Command="{Binding ToggleCustomRatioCommand}"
-                            Padding="6,4" Margin="6,0,0,0" ToolTip="{x:Static res:Strings.Custom}">
-                        <TextBlock FontFamily="{StaticResource TI}" FontSize="18"
-                                   Text="{Binding RatioLockIcon}"/>
-                    </Button>
+                <!-- Section: Aspect ratio inputs + lock -->
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Text="{Binding AspectRatioWidth, UpdateSourceTrigger=PropertyChanged}"
+                         Width="40" VerticalAlignment="Center" FontSize="13" Padding="4,2"
+                         IsEnabled="{Binding UseCustomAspectRatio}" TextAlignment="Center"/>
+                <TextBlock Text="&#xd7;" VerticalAlignment="Center" Margin="6,0" FontSize="13"
+                           Foreground="{StaticResource SubtextBrush}"/>
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Text="{Binding AspectRatioHeight, UpdateSourceTrigger=PropertyChanged}"
+                         Width="40" VerticalAlignment="Center" FontSize="13" Padding="4,2"
+                         IsEnabled="{Binding UseCustomAspectRatio}" TextAlignment="Center"/>
+                <Button Command="{Binding ToggleCustomRatioCommand}"
+                        Padding="6,4" Margin="8,0,0,0" ToolTip="{x:Static res:Strings.Custom}">
+                    <TextBlock FontFamily="{StaticResource TI}" FontSize="16"
+                               Foreground="{StaticResource TextBrush}"
+                               Text="{Binding RatioLockIcon}"/>
+                </Button>
 
-                    <Button Content="16:9" Command="{Binding SetPresetRatioCommand}" CommandParameter="16:9"
-                            Padding="8,4" Margin="10,0,3,0" FontSize="13"/>
-                    <Button Content="21:9" Command="{Binding SetPresetRatioCommand}" CommandParameter="21:9"
-                            Padding="8,4" Margin="0,0,3,0" FontSize="13"/>
-                    <Button Content="16:10" Command="{Binding SetPresetRatioCommand}" CommandParameter="16:10"
-                            Padding="8,4" Margin="0,0,3,0" FontSize="13"/>
-                    <Button Content="4:3" Command="{Binding SetPresetRatioCommand}" CommandParameter="4:3"
-                            Padding="8,4" FontSize="13"/>
-                </StackPanel>
-            </Border>
+                <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="14,2,14,2" Height="18"/>
 
-            <!-- SECOND BAR: Format + AI -->
-            <Border DockPanel.Dock="Top" Background="{StaticResource MantleBrush}"
-                    Padding="12,6" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{x:Static res:Strings.Format}" VerticalAlignment="Center" FontSize="14"
-                               Margin="0,0,8,0" FontWeight="SemiBold"/>
-                    <ComboBox Style="{StaticResource ReadableCombo}"
-                              SelectedIndex="{Binding SelectedOutputFormat}" Width="75" Margin="0,0,20,0">
-                        <ComboBoxItem Content="JPEG"/>
-                        <ComboBoxItem Content="PNG"/>
-                    </ComboBox>
+                <!-- Section: Preset buttons -->
+                <Button Content="16:9" Command="{Binding SetPresetRatioCommand}" CommandParameter="16:9"
+                        Padding="7,3" Margin="0,0,2,0" FontSize="12"/>
+                <Button Content="21:9" Command="{Binding SetPresetRatioCommand}" CommandParameter="21:9"
+                        Padding="7,3" Margin="0,0,2,0" FontSize="12"/>
+                <Button Content="16:10" Command="{Binding SetPresetRatioCommand}" CommandParameter="16:10"
+                        Padding="7,3" Margin="0,0,2,0" FontSize="12"/>
+                <Button Content="4:3" Command="{Binding SetPresetRatioCommand}" CommandParameter="4:3"
+                        Padding="7,3" FontSize="12"/>
+            </StackPanel>
+        </Border>
 
-                    <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="0,2,12,2" Height="20"/>
-
-                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
-                               FontSize="16" Foreground="{StaticResource BlueBrush}"
+        <!-- ============ SECOND BAR: Format + AI + Language (full width) ============ -->
+        <Border Grid.Row="2" Background="{StaticResource MantleBrush}"
+                Padding="12,5" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}">
+            <DockPanel>
+                <!-- Right: Language -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="10,2,14,2" Height="18"/>
+                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xebbe;"
+                               FontSize="14" Foreground="{StaticResource SubtextBrush}"
                                VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBlock Text="{x:Static res:Strings.AI}" VerticalAlignment="Center" FontSize="14"
-                               Margin="0,0,8,0" FontWeight="SemiBold"/>
-                    <ComboBox Style="{StaticResource ReadableCombo}"
-                              SelectedIndex="{Binding SelectedProvider}" Width="130" Margin="0,0,12,0">
-                        <ComboBoxItem Content="Geen"/>
-                        <ComboBoxItem Content="ComfyUI"/>
-                        <ComboBoxItem Content="Stability AI"/>
-                    </ComboBox>
-
-                    <TextBlock Text="{x:Static res:Strings.ApiKey}" VerticalAlignment="Center" FontSize="13" Margin="0,0,6,0"
-                               Visibility="{Binding IsStabilityProvider, Converter={StaticResource BoolVis}}"/>
-                    <TextBox Text="{Binding StabilityApiKey, UpdateSourceTrigger=PropertyChanged}"
-                             Width="200" FontSize="13" Padding="6,4" VerticalAlignment="Center"
-                             Visibility="{Binding IsStabilityProvider, Converter={StaticResource BoolVis}}"/>
-
-                    <TextBlock Text="&#x1f310;" VerticalAlignment="Center" Margin="20,0,6,0" FontSize="16"/>
-                    <ComboBox Style="{StaticResource ReadableCombo}" Width="55"
-                              SelectedValue="{Binding SelectedLanguage}"
-                              SelectedValuePath="Tag">
-                        <ComboBoxItem Content="NL" Tag="nl"/>
-                        <ComboBoxItem Content="EN" Tag="en"/>
-                        <ComboBoxItem Content="DE" Tag="de"/>
-                        <ComboBoxItem Content="FR" Tag="fr"/>
+                    <ComboBox Style="{StaticResource MaterialDesignOutlinedComboBox}" MinWidth="84"
+                              Padding="10,4,34,4"
+                              SelectedValue="{Binding SelectedLanguage}" SelectedValuePath="Tag">
+                        <ComboBoxItem Tag="nl" Content="NL"/>
+                        <ComboBoxItem Tag="en" Content="EN"/>
+                        <ComboBoxItem Tag="de" Content="DE"/>
+                        <ComboBoxItem Tag="fr" Content="FR"/>
                     </ComboBox>
                 </StackPanel>
-            </Border>
 
-            <!-- BOTTOM: Status + centered Crop button -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource MantleBrush}"
-                    Padding="12,8" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}">
+                <!-- Left: Format + AI + API key -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Section: Format -->
+                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb0a;"
+                               FontSize="14" Foreground="{StaticResource SubtextBrush}"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="Formaat" FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              SelectedValue="{Binding SelectedOutputFormat}"
+                              SelectedValuePath="Tag"
+                              Width="88">
+                        <ComboBoxItem Tag="{x:Static models:OutputFormat.Jpeg}" Content="JPEG"/>
+                        <ComboBoxItem Tag="{x:Static models:OutputFormat.Png}" Content="PNG"/>
+                    </ComboBox>
+
+                    <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="14,2,14,2" Height="18"/>
+
+                    <!-- Section: AI Provider -->
+                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
+                               FontSize="14" Foreground="{StaticResource BlueBrush}"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="AI" FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              SelectedValue="{Binding SelectedProvider}"
+                              SelectedValuePath="Tag"
+                              MinWidth="128">
+                        <ComboBoxItem Tag="{x:Static models:OutpaintProvider.Geen}" Content="Geen"/>
+                        <ComboBoxItem Tag="{x:Static models:OutpaintProvider.ComfyUI}" Content="ComfyUI"/>
+                        <ComboBoxItem Tag="{x:Static models:OutpaintProvider.StabilityAI}" Content="Stability AI"/>
+                        <ComboBoxItem Tag="{x:Static models:OutpaintProvider.OpenAI}" Content="OpenAI"/>
+                        <ComboBoxItem Tag="{x:Static models:OutpaintProvider.HuggingFace}" Content="HuggingFace"/>
+                    </ComboBox>
+
+                    <!-- ComfyUI server URL -->
+                    <TextBlock Text="{x:Static res:Strings.ComfyServerUrl}" FontSize="12"
+                               Foreground="{StaticResource SubtextBrush}"
+                               VerticalAlignment="Center" Margin="10,0,6,0"
+                               Visibility="{Binding IsComfyProvider, Converter={StaticResource BoolVis}}"/>
+                    <Grid VerticalAlignment="Center" Width="260"
+                          Visibility="{Binding IsComfyProvider, Converter={StaticResource BoolVis}}">
+                        <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 Text="{Binding ComfyUIBaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12" Padding="6,4"
+                                 ToolTip="{x:Static res:Strings.ComfyUrlPlaceholder}"/>
+                    </Grid>
+
+                    <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="14,2,14,2" Height="18"/>
+
+                    <!-- Section: API Key for Stability AI -->
+                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xebbe;"
+                               FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"
+                               Foreground="{StaticResource SubtextBrush}"
+                               Visibility="{Binding IsStabilityProvider, Converter={StaticResource BoolVis}}"/>
+                    <Grid VerticalAlignment="Center" Width="180"
+                          Visibility="{Binding IsStabilityProvider, Converter={StaticResource BoolVis}}">
+                        <TextBox x:Name="StabilityKeyBox"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 Text="{Binding StabilityApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12" Padding="6,4"/>
+                        <TextBlock Text="API key..." FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                                   Padding="8,5" IsHitTestVisible="False"
+                                   Opacity="0.85"
+                                   Visibility="{Binding StabilityApiKey, Converter={StaticResource NullVis}, ConverterParameter=invert}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StabilityApiKey}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding StabilityApiKey}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <!-- Section: API Key for OpenAI -->
+                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xebbe;"
+                               FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"
+                               Foreground="{StaticResource SubtextBrush}"
+                               Visibility="{Binding IsOpenAIProvider, Converter={StaticResource BoolVis}}"/>
+                    <Grid VerticalAlignment="Center" Width="180"
+                          Visibility="{Binding IsOpenAIProvider, Converter={StaticResource BoolVis}}">
+                        <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 Text="{Binding OpenAIApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12" Padding="6,4"/>
+                        <TextBlock Text="API key..." FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                                   Padding="8,5" IsHitTestVisible="False" Opacity="0.85">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding OpenAIApiKey}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding OpenAIApiKey}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <Rectangle Width="1" Fill="{StaticResource Surface1Brush}" Margin="14,2,14,2" Height="18"/>
+
+                    <CheckBox Style="{StaticResource MaterialDesignCheckBox}"
+                              Content="Prompt" IsChecked="{Binding UseAIPrompt}"
+                              VerticalAlignment="Center" FontSize="12"
+                              ToolTip="Include analyzed image prompt with AI request"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- AI upload / detail (when an AI provider is selected) -->
+        <Border Grid.Row="3" Background="{StaticResource MantleBrush}"
+                Padding="12,6" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}"
+                Visibility="{Binding HasAIProvider, Converter={StaticResource BoolVis}}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
+                           FontSize="14" Foreground="{StaticResource BlueBrush}"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <StackPanel Width="240" Margin="0,0,16,0">
+                    <DockPanel LastChildFill="False" Margin="0,0,0,2">
+                        <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="{StaticResource SubtextBrush}"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Text>
+                                <Binding Path="AiUploadScalePercent" StringFormat="{}{0}%"/>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock Text="{x:Static res:Strings.AiInputMaxSideLabel}" FontSize="11"
+                                   Foreground="{StaticResource SubtextBrush}" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <Slider Minimum="50" Maximum="100" SmallChange="1" LargeChange="5"
+                            TickFrequency="5" IsSnapToTickEnabled="True"
+                            Value="{Binding AiUploadScalePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="{x:Static res:Strings.AiInputMaxSideTooltip}"/>
+                </StackPanel>
+                <StackPanel Width="240">
+                    <DockPanel LastChildFill="False" Margin="0,0,0,2">
+                        <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="{StaticResource SubtextBrush}"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Text>
+                                <Binding Path="AiDetailLevel" StringFormat="{}{0}"/>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock Text="{x:Static res:Strings.AiDetailLevelLabel}" FontSize="11"
+                                   Foreground="{StaticResource SubtextBrush}" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <Slider Minimum="1" Maximum="100" SmallChange="1" LargeChange="5"
+                            Value="{Binding AiDetailLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="{x:Static res:Strings.AiDetailLevelTooltip}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- ============ CONTENT AREA (sidebar + canvas) ============ -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ============ SIDEBAR ============ -->
+            <materialDesign:Card Grid.Column="0" Margin="8,8,4,8" Padding="0" UniformCornerRadius="12"
+                                 materialDesign:ElevationAssist.Elevation="Dp3"
+                                 Background="{StaticResource MantleBrush}">
                 <DockPanel>
-                    <Button DockPanel.Dock="Top" Style="{StaticResource AccentButton}"
-                            Command="{Binding CropCommand}" Padding="28,10"
-                            HorizontalAlignment="Center" Margin="0,0,0,6">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- AI sparkle icon when outpainting will be triggered -->
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
-                                       FontSize="18" Foreground="{StaticResource CrustBrush}"
-                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                       Visibility="{Binding HasOutOfBounds, Converter={StaticResource BoolVis}}"/>
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xea85;"
-                                       FontSize="18" Foreground="{StaticResource CrustBrush}"
-                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding CropButtonText}" VerticalAlignment="Center" FontSize="15"
-                                       Foreground="{StaticResource CrustBrush}" FontWeight="SemiBold"/>
+                    <!-- Fixed folder block -->
+                    <Border DockPanel.Dock="Top" Padding="10,10,10,6"
+                            BorderThickness="0,0,0,1" BorderBrush="{StaticResource Surface1Brush}">
+                        <StackPanel>
+                            <Button Command="{Binding SelectSourceFolderCommand}"
+                                    HorizontalAlignment="Stretch" Padding="8,7" Margin="0,0,0,4"
+                                    ToolTip="{Binding SourceFolderPath}" FontSize="12">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xeaad;"
+                                               FontSize="14" Foreground="{StaticResource BlueBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SourceFolderDisplay}" VerticalAlignment="Center"
+                                               FontSize="12" Foreground="{StaticResource TextBrush}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="155"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding SelectOutputFolderCommand}"
+                                    HorizontalAlignment="Stretch" Padding="8,7"
+                                    ToolTip="{Binding OutputFolderPath}" FontSize="12">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="{StaticResource TI}" Text="&#xea96;"
+                                               FontSize="14" Foreground="{StaticResource BlueBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding OutputFolderDisplay}" VerticalAlignment="Center"
+                                               FontSize="12" Foreground="{StaticResource TextBrush}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="155"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
-                    </Button>
-                    <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SubtextBrush}"
-                               FontSize="13" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Photo counter at bottom -->
+                    <Border DockPanel.Dock="Bottom" Padding="10,6"
+                            BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}">
+                        <DockPanel>
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb0a;"
+                                       FontSize="12" Foreground="{StaticResource SubtextBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding ImageCountText}" FontSize="11"
+                                       Foreground="{StaticResource SubtextBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding CroppedCountText}" FontSize="11" DockPanel.Dock="Right"
+                                       Foreground="{StaticResource GreenBrush}" HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Thumbnail list with elegant scrollbar -->
+                    <ListBox ItemsSource="{Binding Images}"
+                             SelectedItem="{Binding SelectedImage}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.CanContentScroll="False"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             Margin="0" Padding="6,6">
+                        <ListBox.Resources>
+                            <!-- Elegant thin scrollbar for this list -->
+                            <Style TargetType="ScrollBar">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Width" Value="5"/>
+                                <Setter Property="MinWidth" Value="5"/>
+                                <Setter Property="Opacity" Value="0.4"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ScrollBar">
+                                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                                <Track.Thumb>
+                                                    <Thumb>
+                                                        <Thumb.Template>
+                                                            <ControlTemplate TargetType="Thumb">
+                                                                <Border Background="{StaticResource Surface2Brush}"
+                                                                        CornerRadius="2.5" Margin="1,0"/>
+                                                            </ControlTemplate>
+                                                        </Thumb.Template>
+                                                    </Thumb>
+                                                </Track.Thumb>
+                                            </Track>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.Resources>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Surface0Brush}" CornerRadius="6"
+                                        Padding="6" Margin="2,3" BorderThickness="1"
+                                        BorderBrush="{StaticResource Surface1Brush}">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Border CornerRadius="4" ClipToBounds="True">
+                                                <Image Source="{Binding Thumbnail}" Height="100" Stretch="Uniform"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Border>
+                                            <Border Background="{StaticResource GreenBrush}" CornerRadius="6"
+                                                    Padding="3,1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Margin="0,2,2,0"
+                                                    Visibility="{Binding IsCropped, Converter={StaticResource BoolVis}}">
+                                                <TextBlock FontFamily="{StaticResource TI}" Text="&#xea5e;"
+                                                           FontSize="9" Foreground="#111"/>
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding FileName}" FontSize="10"
+                                                   Foreground="{StaticResource SubtextBrush}" FontFamily="Segoe UI"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,6,0,2" ToolTip="{Binding FileName}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                    CornerRadius="6" Padding="2" Margin="0,1">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#2089B4FA"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#10CDD6F4"/>
+                                                    <Setter Property="Cursor" Value="Hand"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </materialDesign:Card>
+
+            <GridSplitter Grid.Column="1" Width="1" Background="{StaticResource Surface1Brush}"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+
+            <!-- ============ MAIN CONTENT ============ -->
+            <DockPanel Grid.Column="2">
+
+            <!-- ===== BOTTOM STACK (from bottom up) ===== -->
+
+            <!-- Log panel -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource CrustBrush}"
+                    BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}"
+                    Visibility="{Binding IsLogVisible, Converter={StaticResource BoolVis}}">
+                <DockPanel MaxHeight="160">
+                    <Border DockPanel.Dock="Top" Background="{StaticResource MantleBrush}" Padding="8,3">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Padding="6,4" Click="OnClearLog" ToolTip="Clear">
+                                <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb55;" FontSize="14"
+                                           Foreground="{StaticResource SubtextBrush}"/>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource TI}" Text="&#xef40;"
+                                           FontSize="12" Foreground="{StaticResource BlueBrush}" Margin="0,0,5,0"/>
+                                <TextBlock Text="Log" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <ListBox ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.CanContentScroll="False" VirtualizingPanel.ScrollUnit="Pixel"
+                             x:Name="LogList">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="4,0">
+                                    <TextBlock Text="{Binding Timestamp}" FontSize="10" FontFamily="Consolas"
+                                               Foreground="{StaticResource Surface2Brush}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{Binding Message}" FontSize="11" TextWrapping="NoWrap"
+                                               Foreground="{StaticResource SubtextBrush}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="MinHeight" Value="16"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
                 </DockPanel>
             </Border>
 
-            <!-- ============ IMAGE CANVAS ============ -->
+            <!-- Status bar -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource MantleBrush}"
+                    Padding="10,4" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Padding="6,4" Click="OnToggleLog" ToolTip="Log">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xef40;" FontSize="14"
+                                       Foreground="{StaticResource BlueBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Log" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{StaticResource SubtextBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SubtextBrush}"
+                               FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Crop button -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource MantleBrush}"
+                    Padding="10,6" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}">
+                <Button Style="{StaticResource AccentButton}"
+                        Command="{Binding CropCommand}" Padding="32,10"
+                        HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
+                                   FontSize="16" Foreground="{DynamicResource MaterialDesignPaper}"
+                                   VerticalAlignment="Center" Margin="0,0,5,0"
+                                   Visibility="{Binding HasOutOfBounds, Converter={StaticResource BoolVis}}"/>
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xea85;"
+                                   FontSize="16" Foreground="{DynamicResource MaterialDesignPaper}"
+                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding CropButtonText}" VerticalAlignment="Center" FontSize="14"
+                                   Foreground="{DynamicResource MaterialDesignPaper}" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+            </Border>
+
+            <!-- Straighten (rechttrekken) — centraal boven de crop-knop -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource MantleBrush}"
+                    Padding="10,8" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}"
+                    Visibility="{Binding SelectedImage, Converter={StaticResource NullVis}}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Static res:Strings.RotationLabel}" FontSize="11"
+                               Foreground="{StaticResource SubtextBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider x:Name="RotationSlider" Width="200" Minimum="-3" Maximum="3"
+                            SmallChange="0.02" LargeChange="0.1" TickFrequency="0.02" IsSnapToTickEnabled="True"
+                            Value="{Binding RotationDegrees, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            VerticalAlignment="Center" Margin="0,0,10,0"
+                            ToolTip="{x:Static res:Strings.RotationTooltip}"/>
+                    <TextBlock Text="{Binding RotationDegrees, StringFormat={}{0:F2}°}" FontSize="11"
+                               Foreground="{StaticResource SubtextBrush}" VerticalAlignment="Center" Width="48" Margin="0,0,8,0"/>
+                    <Button Padding="6,4" Command="{Binding ResetRotationCommand}"
+                            ToolTip="{x:Static res:Strings.ResetRotation}">
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xeae8;" FontSize="14"
+                                   Foreground="{StaticResource TextBrush}"/>
+                    </Button>
+                    <CheckBox Style="{StaticResource MaterialDesignCheckBox}"
+                              Content="{x:Static res:Strings.StraightenGuideLineLabel}"
+                              IsChecked="{Binding ShowStraightenHorizonGuide, Mode=TwoWay}"
+                              VerticalAlignment="Center" Margin="16,0,0,0"
+                              ToolTip="{x:Static res:Strings.StraightenGuideLineTooltip}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Analysis pills -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource MantleBrush}"
+                    Padding="10,3" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}"
+                    Visibility="{Binding ImageAnalysisText, Converter={StaticResource NullVis}}">
+                <TextBlock Text="{Binding ImageAnalysisText}" FontSize="11"
+                           Foreground="{StaticResource SubtextBrush}" TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding ImageAnalysisText}"/>
+            </Border>
+
+            <!-- AI task bar -->
+            <Border DockPanel.Dock="Bottom" Background="#2089B4FA"
+                    Padding="10,4" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Surface1Brush}"
+                    Visibility="{Binding IsOutpainting, Converter={StaticResource BoolVis}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Command="{Binding CancelOutpaintCommand}"
+                            Padding="6,2" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb55;" FontSize="12"
+                                       Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                            <TextBlock Text="Cancel" FontSize="12" Foreground="{StaticResource RedBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
+                                   FontSize="12" Foreground="{StaticResource BlueBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding OutpaintTaskLabel}" FontSize="12"
+                                   Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- ============ CANVAS ============ -->
             <Border Background="{StaticResource CrustBrush}">
                 <Grid>
-                    <!-- Zoom controls overlay (top-right) -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                Margin="0,8,8,0" Panel.ZIndex="10">
-                        <Button x:Name="BtnZoomOut" Padding="6,4" Margin="0,0,3,0" ToolTip="Zoom out (-)"
-                                Click="OnZoomOut">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb57;" FontSize="18"/>
+                    <!-- Zoom (rechttrekken staat in de dock onder de canvas) -->
+                    <Grid Margin="6,6,6,0" Panel.ZIndex="10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <Button Padding="6,4" Margin="0,0,2,0" ToolTip="Zoom out" Click="OnZoomOut">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb57;" FontSize="16"
+                                       Foreground="{StaticResource TextBrush}"/>
                         </Button>
-                        <Button x:Name="BtnZoomReset" Padding="6,4" Margin="0,0,3,0" ToolTip="Fit to window"
-                                Click="OnZoomReset">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeaea;" FontSize="18"/>
+                        <Button Padding="6,4" Margin="0,0,2,0" ToolTip="Fit" Click="OnZoomReset">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeaea;" FontSize="16"
+                                       Foreground="{StaticResource TextBrush}"/>
                         </Button>
-                        <Button x:Name="BtnZoom100" Padding="6,4" Margin="0,0,3,0" ToolTip="1:1 pixel"
-                                Click="OnZoom100">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xed30;" FontSize="18"/>
+                        <Button Padding="6,4" Margin="0,0,2,0" ToolTip="1:1" Click="OnZoom100">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xed30;" FontSize="16"
+                                       Foreground="{StaticResource TextBrush}"/>
                         </Button>
-                        <Button x:Name="BtnZoomIn" Padding="6,4" ToolTip="Zoom in (+)"
-                                Click="OnZoomIn">
-                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb56;" FontSize="18"/>
+                        <Button Padding="6,4" ToolTip="Zoom in" Click="OnZoomIn">
+                            <TextBlock FontFamily="{StaticResource TI}" Text="&#xeb56;" FontSize="16"
+                                       Foreground="{StaticResource TextBrush}"/>
                         </Button>
-                        <TextBlock x:Name="ZoomLabel" Text="100%" FontSize="12"
+                        <TextBlock x:Name="ZoomLabel" Text="100%" FontSize="11"
                                    Foreground="{StaticResource SubtextBrush}"
-                                   VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </StackPanel>
+                    </Grid>
 
                     <ScrollViewer x:Name="CanvasScroller"
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   PreviewMouseWheel="OnCanvasMouseWheel">
-                        <Grid x:Name="ImageContainer"
-                              RenderTransformOrigin="0.5,0.5">
-                            <Grid.LayoutTransform>
-                                <ScaleTransform x:Name="CanvasZoom" ScaleX="1" ScaleY="1"/>
-                            </Grid.LayoutTransform>
-
-                            <Image x:Name="MainImage"
-                                   Source="{Binding DisplayImage}"
-                                   Stretch="Uniform"
-                                   RenderOptions.BitmapScalingMode="HighQuality"/>
-
-                            <controls:CropOverlay
-                                x:Name="CropOverlayControl"
+                        <!-- MinWidth/MinHeight = viewport (eindige meting); gezet vanuit code bij Loaded/SizeChanged -->
+                        <Grid x:Name="ImageContainer" ClipToBounds="True">
+                            <Image x:Name="MainImage" Source="{Binding DisplayImage}" Stretch="Uniform"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <!-- Geen x:Name: zoom wordt in code gezet met nieuwe ScaleTransform zodat layout opnieuw meet -->
+                                <Image.LayoutTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                </Image.LayoutTransform>
+                            </Image>
+                            <controls:CropOverlay x:Name="CropOverlayControl" Panel.ZIndex="1"
                                 AspectRatio="{Binding CropAspectRatio}"
                                 NormalizedX="{Binding NormalizedCropX, Mode=TwoWay}"
                                 NormalizedY="{Binding NormalizedCropY, Mode=TwoWay}"
                                 NormalizedWidth="{Binding NormalizedCropWidth, Mode=TwoWay}"
                                 NormalizedHeight="{Binding NormalizedCropHeight, Mode=TwoWay}"
                                 HasOutOfBounds="{Binding HasOutOfBounds, Mode=TwoWay}"
-                        AllowOutOfBounds="{Binding HasAIProvider}"
-                        Visibility="{Binding DisplayImage, Converter={StaticResource NullVis}}"/>
-
+                                AllowOutOfBounds="{Binding HasAIProvider}"
+                                ShowHorizonGuide="{Binding ShowStraightenHorizonGuide}"
+                                HorizonGuideNormalizedY="{Binding StraightenHorizonGuideNormalizedY, Mode=TwoWay}"
+                                Visibility="{Binding DisplayImage, Converter={StaticResource NullVis}}"/>
                         </Grid>
                     </ScrollViewer>
 
-                    <!-- Outpainting overlay outside scroll so it stays centered -->
+                    <!-- Outpainting spinner overlay -->
                     <Border Background="#DD1E1E2E" CornerRadius="10"
                             Visibility="{Binding IsOutpainting, Converter={StaticResource BoolVis}}"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Padding="36,28" Panel.ZIndex="20">
+                            Padding="32,24" Panel.ZIndex="20">
                         <StackPanel HorizontalAlignment="Center">
-                            <Border Width="44" Height="44" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <Border Width="40" Height="40" HorizontalAlignment="Center" Margin="0,0,0,14">
                                 <Border.RenderTransform>
-                                    <RotateTransform x:Name="SpinnerRotation" CenterX="22" CenterY="22"/>
+                                    <RotateTransform x:Name="SpinnerRotation" CenterX="20" CenterY="20"/>
                                 </Border.RenderTransform>
                                 <Border.Triggers>
                                     <EventTrigger RoutedEvent="Border.Loaded">
                                         <BeginStoryboard>
                                             <Storyboard RepeatBehavior="Forever">
                                                 <DoubleAnimation Storyboard.TargetName="SpinnerRotation"
-                                                                 Storyboard.TargetProperty="Angle"
-                                                                 From="0" To="360" Duration="0:0:1"/>
+                                                    Storyboard.TargetProperty="Angle"
+                                                    From="0" To="360" Duration="0:0:1"/>
                                             </Storyboard>
                                         </BeginStoryboard>
                                     </EventTrigger>
                                 </Border.Triggers>
-                                <Ellipse Width="44" Height="44" StrokeThickness="4"
-                                         Stroke="{StaticResource BlueBrush}"
-                                         StrokeDashArray="2.5 1.5"/>
+                                <Ellipse Width="40" Height="40" StrokeThickness="3"
+                                         Stroke="{StaticResource BlueBrush}" StrokeDashArray="2.5 1.5"/>
                             </Border>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                 <TextBlock FontFamily="{StaticResource TI}" Text="&#xf6d7;"
-                                           FontSize="20" Foreground="{StaticResource BlueBrush}"
-                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                           FontSize="18" Foreground="{StaticResource BlueBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
                                 <TextBlock Text="{x:Static res:Strings.AIOutpainting}"
-                                           FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                           FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding StatusText}"
+                            <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SubtextBrush}"
+                                       FontSize="13" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap" MaxWidth="320"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Crop success toast (zelfde stijl als AI-overlay, groen accent) -->
+                    <Border Background="#DD1E1E2E" CornerRadius="10"
+                            Visibility="{Binding IsCropSuccessToastVisible, Converter={StaticResource BoolVis}}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Padding="32,24" Panel.ZIndex="21"
+                            BorderBrush="#40A6E3A1" BorderThickness="1">
+                        <StackPanel HorizontalAlignment="Center" MaxWidth="360">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+                                <TextBlock FontFamily="{StaticResource TI}" Text="&#xea5e;"
+                                           FontSize="18" Foreground="{StaticResource GreenBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding CropSuccessToastTitle}"
+                                           FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding CropSuccessToastDetail}"
                                        Foreground="{StaticResource SubtextBrush}"
-                                       FontSize="14" HorizontalAlignment="Center"
-                                       TextWrapping="Wrap" MaxWidth="350"/>
+                                       FontSize="13" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap" TextAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </Grid>
             </Border>
         </DockPanel>
+        </Grid>
     </Grid>
+    </Border>
 </Window>
